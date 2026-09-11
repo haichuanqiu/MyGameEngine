@@ -1,0 +1,74 @@
+{
+GameObject 
+name: Light
+id: 1
+Component{
+TypeId:13979161094353040123
+ObjId:2
+Data: {
+    "position": {
+        "x": 2,
+        "y": 3,
+        "z": 2
+    },
+    "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+    },
+    "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+    }
+}
+}
+Component{
+TypeId:7672353354190015963
+ObjId:3
+Data: {
+    "Intensity": 10,
+    "Range": 10,
+    "Color": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+    }
+}
+}
+}
+{
+GameObject 
+name: Cube
+id: 4
+Component{
+TypeId:13979161094353040123
+ObjId:5
+Data: {
+    "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+    },
+    "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+    },
+    "rotation": {
+        "x": 0.167731,
+        "y": 0.254887,
+        "z": 0.044943,
+        "w": 0.951251
+    }
+}
+}
+Component{
+TypeId:18406484507766955422
+ObjId:6
+Data: {
+    "renderSystemIndex": 0
+}
+}
+}
