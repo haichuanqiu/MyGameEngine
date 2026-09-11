@@ -1,6 +1,6 @@
-#include "Renderer.h"
+#include "Engine/Components/RenderingRelatedComponents.h"
 #include "rendering/RenderSystem.h"
-#include "GameObject.h"
+#include "Engine/GameObjectSystem.h"
 void PointLight::UpdateLightData(RenderSystem& target)
 {
      id = target.UpdatePointLightData(

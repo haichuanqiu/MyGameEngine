@@ -1,6 +1,6 @@
 // PointLightCustomInspector.cpp
 #include "ClassInspector.h"
-#include "Engine/Renderer.h"   // 你的 PointLight 定义
+#include "Engine/Components/RenderingRelatedComponents.h"   // 你的 PointLight 定义
 
 
 // 自动注册，不需要集中管理

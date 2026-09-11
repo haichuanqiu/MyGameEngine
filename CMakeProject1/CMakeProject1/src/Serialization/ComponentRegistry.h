@@ -4,7 +4,7 @@
 #include <functional>
 #include <unordered_map>
 #include <utility>
-
+#include "Serialization/Reflection.h"
 class Component;
 class GameObject;
 

@@ -12,9 +12,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "Engine/GameObject.h"
-#include "Engine/Transform.h"
-#include "Engine/Renderer.h"
+#include "Engine/Components/RenderingRelatedComponents.h"
 #include "VertexDataController.h"
 
 

@@ -2,8 +2,8 @@
 
 #include "imgui.h"
 
-#include "Engine/GameObject.h"
-#include "Reflection.h"
+#include "Engine/GameObjectSystem.h"
+#include "Serialization/Reflection.h"
 #include "Editor/DataInEditor/ClassInspector.h"
 
 #include "Serialization/JsonSerializer.h"
@@ -99,19 +99,6 @@ void InspectorView::Draw()
 
           ImGui::Separator();
      }
-     ImGui::Text("Serialized JSON");
-
-     std::string json =
-          JsonSerializer::Serialize(gameObject);
-
-     ImGui::InputTextMultiline(
-          "##SerializedJSON",
-          json.data(),
-          json.size() + 1,
-          ImVec2(-1.0f, 300.0f),
-          ImGuiInputTextFlags_ReadOnly
-     );
-
 
      ImGui::End();
 }

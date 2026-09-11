@@ -1,9 +1,8 @@
 #pragma once
 
-#include "Component.h"
-#include "DataStructure.h"
-#include "Reflection.h"
-#include "ComponentRegistry.h"
+#include "Engine/GameObjectSystem/GameObject.h"
+#include "Engine/DataStructure.h"
+#include "Serialization/ComponentRegistry.h"
 class Transform : public Component
 {
 public:

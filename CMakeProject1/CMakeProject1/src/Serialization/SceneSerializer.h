@@ -1,8 +1,6 @@
 #pragma once
 
-#include "Engine/GameObject.h"
 #include "Engine/Scene.h"
-#include "Engine/Transform.h"
 #include "Reflection.h"
 #include "ComponentRegistry.h"
 #include "JsonSerializer.h"

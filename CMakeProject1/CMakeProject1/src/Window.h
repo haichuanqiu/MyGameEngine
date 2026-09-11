@@ -1,5 +1,5 @@
 #pragma once
-
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 class Window
 {
@@ -20,7 +20,15 @@ public:
 			m_Window = nullptr;
 		}
 	}
-
+	bool TryInit() {
+		if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+		{
+			return false;
+		}
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LESS);
+		return true;
+	}
 	void PollEvents() {
 		glfwPollEvents();
 	}

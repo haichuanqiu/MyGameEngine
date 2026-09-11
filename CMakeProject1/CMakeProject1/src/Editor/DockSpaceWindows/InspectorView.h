@@ -1,5 +1,5 @@
 #pragma once
-#include "Engine/GameObject.h"
+#include "Engine/GameObjectSystem.h"
 #include "Engine/Scene.h"
 class InspectorView
 {

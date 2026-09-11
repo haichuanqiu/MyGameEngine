@@ -1,24 +1,11 @@
-﻿#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
-#include <iostream>
+﻿
+#include "Window.h"
 #include "Editor/DockSpaceWindows/WindowLayoutController.h"
-// ImGui
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-
-#include "rendering/RenderSystem.h"
+#include <iostream>
 #include <thread>
 #include <chrono>
-#include "Window.h"
-#include "tryLoadScene.h"
-#include "OnSceneCreated.h"
-#include "Editor/EditorApplication.h"
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
-     glViewport(0, 0, width, height);
-}
+#include "Testing/tryLoadScene.h"
+#include "Testing/OnSceneCreated.h"
 
 int main()
 {
@@ -27,7 +14,7 @@ int main()
      // ------------------------
 
      Window MiniEngineWindow(1280, 720, "MiniEngine");
-     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+     if (!MiniEngineWindow.TryInit())
      {
           std::cout << "Failed to initialize GLAD" << std::endl;
           return -1;
@@ -77,10 +64,7 @@ int main()
      // ------------------------
      // 清理
      // ------------------------
-     ImGui_ImplOpenGL3_Shutdown();
-     ImGui_ImplGlfw_Shutdown();
-     ImGui::DestroyContext();
-
+     mylayout.ShutDown();
      glfwTerminate();
      //EditorApplication editor();
    //  RenderSystem::RenderForCamera();

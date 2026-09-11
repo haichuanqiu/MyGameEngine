@@ -1,10 +1,9 @@
 #pragma once
 
-#include "Component.h"
-#include "DataStructure.h"
-#include "Transform.h"
+#include "Engine/GameObjectSystem.h"
+#include "Engine/DataStructure.h"
 #include "rendering/Shader.h"
-#include "ComponentRegistry.h"
+#include "Serialization/ComponentRegistry.h"
 class GameObject;
 class RenderSystem;
 class Renderer : public Component
