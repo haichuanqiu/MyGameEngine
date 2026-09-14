@@ -1,33 +1,64 @@
 #pragma once
+
 class EditorApplication
 {
 public:
-     EditorApplication(int SceneframeBufferID):EditorCamreaGameObject()
+
+     EditorApplication(int SceneframeBufferID)
+          : EditorCamreaGameObject()
      {
-          m_Engine = std::make_unique<Engine>();
-
-          
-
+          m_Engine =
+               &Engine::Instance();
 
 
-         
-          EditorCamreaGameObject.name = "Camrea";
-          EditorCamreaGameObject.transform->SetPosition(Vector3(0, 0, 5));
+          EditorCamreaGameObject.name =
+               "Camrea";
 
-           EditorCamera = EditorCamreaGameObject.AddComponent<Camera>();
-           EditorCamera->renderInfo_targetFramebuffer = SceneframeBufferID;
-          
+
+          EditorCamreaGameObject.transform
+               ->SetPosition(
+                    Vector3(0, 0, 5)
+               );
+
+
+          EditorCamera =
+               EditorCamreaGameObject
+               .AddComponent<Camera>();
+
+
+          EditorCamera
+               ->renderInfo_targetFramebuffer =
+               SceneframeBufferID;
      }
-     std::unique_ptr<Engine> m_Engine;
 
-     void UpdateSceneView() {
-          m_Engine->renderSystem.RenderForCamera(*EditorCamera);
+
+     void UpdateSceneView()
+     {
+          m_Engine
+               ->renderSystem
+               .RenderForCamera(
+                    *EditorCamera
+               );
      }
+
+
+public:
+
+     Engine* m_Engine =
+          nullptr;
+
+
      GameObject EditorCamreaGameObject;
-     GameObject* ChoosenGameObject;
-     Camera* EditorCamera;
-     WindowLayoutController* WindowLayout;
-     int SceenChoosenItemHierarchyIndex;
-private:
-     
+
+     GameObject* ChoosenGameObject =
+          nullptr;
+
+     Camera* EditorCamera =
+          nullptr;
+
+     WindowLayoutController* WindowLayout =
+          nullptr;
+
+     int SceenChoosenItemHierarchyIndex =
+          -1;
 };

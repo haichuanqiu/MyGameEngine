@@ -12,9 +12,9 @@ public:
 		}
 		return false;
 	}
-	int ScopeLevel;//scene=0,asset=1
-	int ScopeID;
-	int ObjectID;
+	int ScopeLevel=-1;//scene=0,asset=1
+	int ScopeID=-1;
+	int ObjectID=-1;
 	ReferenceDescription() = default;
 };
 

@@ -3,7 +3,6 @@
 #include "Engine/GameObjectSystem.h"
 #include "Engine/DataStructure.h"
 #include "rendering/Shader.h"
-#include "Serialization/ComponentRegistry.h"
 #include "Assets/Material.h"
 class GameObject;
 class RenderSystem;
@@ -15,8 +14,9 @@ public:
 	
 private:
 };
-REFLECT(
+REFLECT_BASE(
 	Renderer,
+	Component,
 	FIELD(Renderer, renderSystemIndex),
 	REF_FIELD(Renderer, material),
 
@@ -51,9 +51,9 @@ private:
 	GameObject* m_owner = nullptr; 
 };
 
-REFLECT(
+REFLECT_BASE(
 	PointLight,
-
+	Component,
 	FIELD(PointLight, Intensity),
 	FIELD(PointLight, Range),
 	FIELD(PointLight, Color)
@@ -78,9 +78,9 @@ public:
 
 };
 
-REFLECT(
+REFLECT_BASE(
 	Camera,
-
+	Component,
 	FIELD(Camera, FieldOfView),
 	FIELD(Camera, NearClip),
 	FIELD(Camera, FarClip),

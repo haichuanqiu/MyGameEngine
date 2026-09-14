@@ -8,7 +8,7 @@
 
 #include "Serialization/ComponentRegistry.h"
 #include "EngineObject.h"
-
+#include "Event.h"
 class GameObject;
 class Transform;
 class Renderer;
@@ -30,7 +30,10 @@ public:
 
      virtual void OnRemoved(GameObject* owner) {}
 };
-
+REFLECT_BASE(
+     Component,
+     EngineObject
+)
 
 // ============================================================
 // GameObject
@@ -53,6 +56,17 @@ public:
      GameObject& operator=(GameObject&&) noexcept = default;
 
 
+     // ============================================================
+     // Component Added Event
+     // ============================================================
+
+     Event<Component*> OnComponentAdded;
+
+
+     // ============================================================
+     // Add Component
+     // ============================================================
+
      template<typename T, typename... Args>
      T* AddComponent(Args&&... args)
      {
@@ -61,39 +75,61 @@ public:
                     std::forward<Args>(args)...
                );
 
-          component->gameObject = this;
+          component->gameObject =
+               this;
 
-          T* ptr = component.get();
+          T* ptr =
+               component.get();
 
           m_Components.push_back(
                std::move(component)
           );
 
-          if constexpr (std::is_same_v<T, Transform>)
+          if constexpr (
+               std::is_same_v<T, Transform>
+               )
           {
-               transform = ptr;
+               transform =
+                    ptr;
           }
 
-          if constexpr (std::is_same_v<T, Renderer>)
+          if constexpr (
+               std::is_same_v<T, Renderer>
+               )
           {
-               renderer = ptr;
+               renderer =
+                    ptr;
           }
 
-          ptr->OnAdded(this);
+          ptr->OnAdded(
+               this
+          );
+
+
+          // =====================================================
+          // Notify Component Added
+          // =====================================================
+
+          OnComponentAdded.Invoke(
+               ptr
+          );
+
 
           return ptr;
      }
 
 
-     std::vector<std::unique_ptr<Component>>&
-          GetComponents()
+     std::vector<
+          std::unique_ptr<Component>
+     >& GetComponents()
      {
           return m_Components;
      }
 
 
-     const std::vector<std::unique_ptr<Component>>&
-          GetComponents() const
+     const std::vector<
+          std::unique_ptr<Component>
+     >& GetComponents() const
      {
           return m_Components;
      }
@@ -103,23 +139,27 @@ public:
 
      std::string name;
 
-     Transform* transform = nullptr;
+     Transform* transform =
+          nullptr;
 
-     Renderer* renderer = nullptr;
+     Renderer* renderer =
+          nullptr;
 
 
 private:
 
-     std::vector<std::unique_ptr<Component>>
-          m_Components;
+     std::vector<
+          std::unique_ptr<Component>
+     > m_Components;
 
      REFLECT_FRIEND(GameObject);
 };
 
 
-REFLECT(
+REFLECT_BASE(
      GameObject,
-     )
+     EngineObject
+)
 
 
      template<typename T>

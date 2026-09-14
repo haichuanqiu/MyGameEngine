@@ -3,6 +3,7 @@
 #include <iostream>
 #include <filesystem>
 #include "Engine/Engine.h"
+#include "Engine/Components/ReferenceTester.h"
 #include "Engine/Scene.h"
 #include "rendering/VertexDataController.h"
 #include "rendering/ShaderManager.h"
@@ -10,6 +11,7 @@
 #include "Serialization/SceneSerializer.h"
 #include "Assets/Material.h"
 #include "Assets/AssetManager.h"
+
 namespace testScene {
 	Mesh RegisterMesh() {
 		float squareVertices[] = {
@@ -145,7 +147,7 @@ namespace testScene {
 			
 		);
 		Renderer* renderer = cube.AddComponent<Renderer>();
-
+	
 		Material m;
 
 		m.setVertShaderPath(
@@ -193,7 +195,23 @@ namespace testScene {
 		{
 			layout.m_InspectorView.SetTarget(asset);
 		}
+		ReferenceTest* Test = cube.AddComponent<ReferenceTest>();
+
+		Test->material = AssetManager::Instance().Find<Material>(materialID);
+
+		Test->myRefGameObject = engine.currentScene.GetObjectOfType<std::remove_reference_t<decltype(light)>>(light.ReferenceInfo.ObjectID);
+
+		Test->rd = engine.currentScene.GetObjectOfType<std::remove_pointer_t<decltype(renderer)>>(renderer->ReferenceInfo.ObjectID);
+
+		Test->ts = Engine::Instance().GetScene(light.ReferenceInfo.ScopeID)->GetObjectOfType<GameObject>(light.ReferenceInfo.ObjectID)->transform;
 		
+		Test->testInt = 123;
+		Test->testFloat = 45.67f;
+		Test->testBool = true;
+		Test->testString = "ReferenceTest Primitive Test";
+		Test->testString =
+			"ReferenceTest Primitive Test";
+
 		auto s=SceneSerializer::Serialize(engine.currentScene);
 		SceneSerializer::SaveSceneTo(engine.currentScene,"../../../../CMakeProject1/assets/SceneData");
 		

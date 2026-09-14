@@ -82,9 +82,9 @@ private:
      REFLECT_FRIEND(Transform);
 };
 
-REFLECT(
+REFLECT_BASE(
      Transform,
-
+     Component,
      FIELD(Transform, position),
      FIELD(Transform, scale),
      FIELD(Transform, rotation),

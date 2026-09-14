@@ -2,7 +2,7 @@
 #include "ReferenceDescription.h"
 class ReferenceResolver {
 	public:
-	EngineObject* GetItem(ReferenceDescription refDes);
+	EngineObject* GetItem(ReferenceDescription refDes) ;
 	static ReferenceResolver& Instance()
 	{
 		static ReferenceResolver instance;

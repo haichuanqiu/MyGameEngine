@@ -1,6 +1,6 @@
 #pragma once
 #include "vertexDataShape.h"
-
+#include <glad/glad.h>
 class OpenGLVertexDataController
 {
 public:
