@@ -1,27 +1,57 @@
 #pragma once
-#pragma once
 
 #include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
+
 #include "Serialization/ComponentRegistry.h"
+#include "EngineObject.h"
+
+class GameObject;
 class Transform;
 class Renderer;
 
-class GameObject
+
+// ============================================================
+// Component
+// ============================================================
+
+class Component : public EngineObject
 {
 public:
+
+     virtual ~Component() = default;
+
+     GameObject* gameObject = nullptr;
+
+     virtual void OnAdded(GameObject* owner) {}
+
+     virtual void OnRemoved(GameObject* owner) {}
+};
+
+
+// ============================================================
+// GameObject
+// ============================================================
+
+class GameObject : public EngineObject
+{
+public:
+
      GameObject();
 
      ~GameObject() = default;
 
      GameObject(const GameObject&) = delete;
+
      GameObject& operator=(const GameObject&) = delete;
 
      GameObject(GameObject&&) noexcept = default;
+
      GameObject& operator=(GameObject&&) noexcept = default;
+
 
      template<typename T, typename... Args>
      T* AddComponent(Args&&... args)
@@ -35,7 +65,9 @@ public:
 
           T* ptr = component.get();
 
-          m_Components.push_back(std::move(component));
+          m_Components.push_back(
+               std::move(component)
+          );
 
           if constexpr (std::is_same_v<T, Transform>)
           {
@@ -51,43 +83,47 @@ public:
 
           return ptr;
      }
-const std::vector<std::unique_ptr<Component>>&
-GetComponents() const
-{
-    return m_Components;
-}
+
+
+     std::vector<std::unique_ptr<Component>>&
+          GetComponents()
+     {
+          return m_Components;
+     }
+
+
+     const std::vector<std::unique_ptr<Component>>&
+          GetComponents() const
+     {
+          return m_Components;
+     }
+
 
 public:
+
      std::string name;
 
      Transform* transform = nullptr;
+
      Renderer* renderer = nullptr;
+
 
 private:
 
-std::unique_ptr<Component> m_Componenttt;
-     std::vector<std::unique_ptr<Component>> m_Components;
-     
+     std::vector<std::unique_ptr<Component>>
+          m_Components;
+
      REFLECT_FRIEND(GameObject);
 };
 
+
 REFLECT(
      GameObject,
-
      )
+
+
      template<typename T>
 Component* CreateComponent(GameObject& gameObject)
 {
      return gameObject.AddComponent<T>();
 }
-
-class Component
-{
-public:
-     virtual ~Component() = default;
-
-     GameObject* gameObject = nullptr;
-     virtual void OnAdded(GameObject* owner) {}
-     virtual void OnRemoved(GameObject* owner) {}
-
-};

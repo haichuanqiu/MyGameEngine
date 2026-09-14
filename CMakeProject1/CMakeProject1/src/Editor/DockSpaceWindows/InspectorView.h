@@ -1,21 +1,38 @@
 #pragma once
+
 #include "Engine/GameObjectSystem.h"
-#include "Engine/Scene.h"
+#include "Editor/DataInEditor/ClassInspector.h"
+
+#include <memory>
+#include <vector>
+
 class InspectorView
 {
 public:
-     void SetTarget(Scene* scene)
+
+     void Draw();
+
+     void SetTarget(EngineObject* object)
      {
-          m_TargetScene = scene;
+          if (!object)
+          {
+               ClearTarget();
+               return;
+          }
+
+          m_Inspector =
+               std::make_unique<ClassInspector>(
+                    "Object",
+                    object
+               );
      }
 
-     void SetChosenIndex(int* index)
+     void ClearTarget()
      {
-          m_ChosenIndex = index;
+          m_Inspector.reset();
      }
 
-	void Draw();
 private:
-     Scene* m_TargetScene = nullptr;
-     int* m_ChosenIndex = nullptr;
+
+     std::unique_ptr<ClassInspector> m_Inspector;
 };

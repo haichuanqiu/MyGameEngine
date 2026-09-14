@@ -9,7 +9,8 @@ WindowLayoutController::WindowLayoutController(GLFWwindow* target)
     : m_target(target),
       m_SceneView(),
       m_HierarchyView(),
-      m_InspectorView()
+      m_InspectorView(),
+	m_AssetView()
 {
     IMGUI_CHECKVERSION();
 
@@ -38,6 +39,7 @@ void WindowLayoutController::Draw() {
 	m_HierarchyView.Draw();
 	m_InspectorView.Draw();
 	m_SceneView.Draw();	
+	m_AssetView.Draw();
 	ImGui::Render();
 	ImGui::UpdatePlatformWindows();
 	ImGui::RenderPlatformWindowsDefault();

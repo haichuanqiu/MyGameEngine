@@ -3,7 +3,7 @@
 #include "Engine/GameObjectSystem.h"
 void PointLight::UpdateLightData(RenderSystem& target)
 {
-     id = target.UpdatePointLightData(
+     id = target.GetLighting().UpdatePointLightData(
           id,
           gameObject->transform->GetPosition(),
           Color,

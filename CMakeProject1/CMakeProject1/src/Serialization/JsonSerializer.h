@@ -1,14 +1,19 @@
 #pragma once
 
 #include "Reflection.h"
-
+#include "Assets/ReferenceResolver.h"
 #include <any>
-#include <cctype>
 #include <fstream>
 #include <sstream>
 #include <string>
+
+#pragma once
+#include <any>
+#include <cctype>
+#include <cstring>
 #include <utility>
 #include <vector>
+
 
 class JsonSerializer
 {
@@ -16,17 +21,6 @@ private:
 
      // ============================================================
      // Simple JSON Value
-     //
-     // 这里只支持当前 Reflection 实际需要的：
-     //
-     // int
-     // float
-     // bool
-     // object
-     // array
-     // null
-     //
-     // 暂时不支持 string，因为你的 FieldType 目前也没有 String。
      // ============================================================
 
      struct JsonValue
@@ -36,22 +30,38 @@ private:
                Null,
                Number,
                Bool,
+               String,
                Object,
                Array
           };
 
-          Type type = Type::Null;
 
-          // Number 同时保存 int / float
-          double number = 0.0;
+          Type type =
+               Type::Null;
 
-          bool boolean = false;
+
+          double number =
+               0.0;
+
+
+          bool boolean =
+               false;
+
+
+          std::string string;
+
 
           std::vector<
-               std::pair<std::string, JsonValue>
+               std::pair<
+               std::string,
+               JsonValue
+               >
           > object;
 
-          std::vector<JsonValue> array;
+
+          std::vector<
+               JsonValue
+          > array;
      };
 
 
@@ -69,16 +79,26 @@ private:
           {}
 
 
-          bool Parse(JsonValue& out)
+          // ========================================================
+          // Parse
+          // ========================================================
+
+          bool Parse(
+               JsonValue& out)
           {
                SkipWhitespace();
+
 
                if (!ParseValue(out))
                     return false;
 
+
                SkipWhitespace();
 
-               return m_Position == m_Text.size();
+
+               return
+                    m_Position ==
+                    m_Text.size();
           }
 
 
@@ -88,50 +108,115 @@ private:
           // Parse Value
           // ========================================================
 
-          bool ParseValue(JsonValue& out)
+          bool ParseValue(
+               JsonValue& out)
           {
                SkipWhitespace();
 
-               if (m_Position >= m_Text.size())
+
+               if (
+                    m_Position >=
+                    m_Text.size()
+                    )
+               {
                     return false;
+               }
 
-               char c = m_Text[m_Position];
 
+               char c =
+                    m_Text[
+                         m_Position
+                    ];
+
+
+               // =================================================
                // Object
+               // =================================================
+
                if (c == '{')
                {
-                    return ParseObject(out);
+                    return
+                         ParseObject(
+                              out
+                         );
                }
 
+
+               // =================================================
                // Array
+               // =================================================
+
                if (c == '[')
                {
-                    return ParseArray(out);
+                    return
+                         ParseArray(
+                              out
+                         );
                }
 
-               // Bool
-               if (c == 't' || c == 'f')
+
+               // =================================================
+               // String
+               // =================================================
+
+               if (c == '"')
                {
-                    return ParseBool(out);
+                    return
+                         ParseStringValue(
+                              out
+                         );
                }
 
+
+               // =================================================
+               // Bool
+               // =================================================
+
+               if (
+                    c == 't' ||
+                    c == 'f'
+                    )
+               {
+                    return
+                         ParseBool(
+                              out
+                         );
+               }
+
+
+               // =================================================
                // Null
+               // =================================================
+
                if (c == 'n')
                {
-                    return ParseNull(out);
+                    return
+                         ParseNull(
+                              out
+                         );
                }
 
+
+               // =================================================
                // Number
+               // =================================================
+
                if (
                     c == '-' ||
                     c == '+' ||
                     std::isdigit(
-                         static_cast<unsigned char>(c)
+                         static_cast<
+                         unsigned char
+                         >(c)
                     )
                     )
                {
-                    return ParseNumber(out);
+                    return
+                         ParseNumber(
+                              out
+                         );
                }
+
 
                return false;
           }
@@ -141,50 +226,70 @@ private:
           // Parse Object
           // ========================================================
 
-          bool ParseObject(JsonValue& out)
+          bool ParseObject(
+               JsonValue& out)
           {
                if (!Consume('{'))
                     return false;
 
-               out = JsonValue{};
-               out.type = JsonValue::Type::Object;
+
+               out =
+                    JsonValue{};
+
+
+               out.type =
+                    JsonValue::Type::Object;
+
 
                SkipWhitespace();
 
-               // Empty object
+
+               // Empty Object
                if (Consume('}'))
                     return true;
+
 
                while (true)
                {
                     SkipWhitespace();
 
+
                     std::string key;
+
 
                     if (!ParseString(key))
                          return false;
 
+
                     SkipWhitespace();
+
 
                     if (!Consume(':'))
                          return false;
 
+
                     SkipWhitespace();
+
 
                     JsonValue value;
 
+
                     if (!ParseValue(value))
                          return false;
+
 
                     out.object.emplace_back(
                          std::move(key),
                          std::move(value)
                     );
 
+
                     SkipWhitespace();
+
 
                     if (Consume('}'))
                          return true;
+
 
                     if (!Consume(','))
                          return false;
@@ -196,37 +301,52 @@ private:
           // Parse Array
           // ========================================================
 
-          bool ParseArray(JsonValue& out)
+          bool ParseArray(
+               JsonValue& out)
           {
                if (!Consume('['))
                     return false;
 
-               out = JsonValue{};
-               out.type = JsonValue::Type::Array;
+
+               out =
+                    JsonValue{};
+
+
+               out.type =
+                    JsonValue::Type::Array;
+
 
                SkipWhitespace();
 
-               // Empty array
+
+               // Empty Array
                if (Consume(']'))
                     return true;
+
 
                while (true)
                {
                     SkipWhitespace();
 
+
                     JsonValue value;
+
 
                     if (!ParseValue(value))
                          return false;
+
 
                     out.array.push_back(
                          std::move(value)
                     );
 
+
                     SkipWhitespace();
+
 
                     if (Consume(']'))
                          return true;
+
 
                     if (!Consume(','))
                          return false;
@@ -238,23 +358,44 @@ private:
           // Parse Bool
           // ========================================================
 
-          bool ParseBool(JsonValue& out)
+          bool ParseBool(
+               JsonValue& out)
           {
                if (Match("true"))
                {
-                    out = JsonValue{};
-                    out.type = JsonValue::Type::Bool;
-                    out.boolean = true;
+                    out =
+                         JsonValue{};
+
+
+                    out.type =
+                         JsonValue::Type::Bool;
+
+
+                    out.boolean =
+                         true;
+
+
                     return true;
                }
 
+
                if (Match("false"))
                {
-                    out = JsonValue{};
-                    out.type = JsonValue::Type::Bool;
-                    out.boolean = false;
+                    out =
+                         JsonValue{};
+
+
+                    out.type =
+                         JsonValue::Type::Bool;
+
+
+                    out.boolean =
+                         false;
+
+
                     return true;
                }
+
 
                return false;
           }
@@ -264,13 +405,20 @@ private:
           // Parse Null
           // ========================================================
 
-          bool ParseNull(JsonValue& out)
+          bool ParseNull(
+               JsonValue& out)
           {
                if (!Match("null"))
                     return false;
 
-               out = JsonValue{};
-               out.type = JsonValue::Type::Null;
+
+               out =
+                    JsonValue{};
+
+
+               out.type =
+                    JsonValue::Type::Null;
+
 
                return true;
           }
@@ -280,13 +428,16 @@ private:
           // Parse Number
           // ========================================================
 
-          bool ParseNumber(JsonValue& out)
+          bool ParseNumber(
+               JsonValue& out)
           {
                size_t begin =
                     m_Position;
 
+
                if (
-                    m_Position < m_Text.size() &&
+                    m_Position <
+                    m_Text.size() &&
                     (
                          m_Text[m_Position] == '-' ||
                          m_Text[m_Position] == '+'
@@ -296,46 +447,76 @@ private:
                     ++m_Position;
                }
 
-               bool hasDigits = false;
+
+               bool hasDigits =
+                    false;
+
 
                while (
-                    m_Position < m_Text.size() &&
+                    m_Position <
+                    m_Text.size() &&
                     std::isdigit(
-                         static_cast<unsigned char>(
-                              m_Text[m_Position]
+                         static_cast<
+                         unsigned char
+                         >(
+                              m_Text[
+                                   m_Position
+                              ]
                               )
                     )
                     )
                {
-                    hasDigits = true;
+                    hasDigits =
+                         true;
+
+
                     ++m_Position;
                }
 
+
+               // =================================================
                // Decimal
+               // =================================================
+
                if (
-                    m_Position < m_Text.size() &&
+                    m_Position <
+                    m_Text.size() &&
                     m_Text[m_Position] == '.'
                     )
                {
                     ++m_Position;
 
+
                     while (
-                         m_Position < m_Text.size() &&
+                         m_Position <
+                         m_Text.size() &&
                          std::isdigit(
-                              static_cast<unsigned char>(
-                                   m_Text[m_Position]
+                              static_cast<
+                              unsigned char
+                              >(
+                                   m_Text[
+                                        m_Position
+                                   ]
                                    )
                          )
                          )
                     {
-                         hasDigits = true;
+                         hasDigits =
+                              true;
+
+
                          ++m_Position;
                     }
                }
 
-               // Scientific notation
+
+               // =================================================
+               // Scientific
+               // =================================================
+
                if (
-                    m_Position < m_Text.size() &&
+                    m_Position <
+                    m_Text.size() &&
                     (
                          m_Text[m_Position] == 'e' ||
                          m_Text[m_Position] == 'E'
@@ -344,8 +525,10 @@ private:
                {
                     ++m_Position;
 
+
                     if (
-                         m_Position < m_Text.size() &&
+                         m_Position <
+                         m_Text.size() &&
                          (
                               m_Text[m_Position] == '+' ||
                               m_Text[m_Position] == '-'
@@ -355,22 +538,33 @@ private:
                          ++m_Position;
                     }
 
+
                     while (
-                         m_Position < m_Text.size() &&
+                         m_Position <
+                         m_Text.size() &&
                          std::isdigit(
-                              static_cast<unsigned char>(
-                                   m_Text[m_Position]
+                              static_cast<
+                              unsigned char
+                              >(
+                                   m_Text[
+                                        m_Position
+                                   ]
                                    )
                          )
                          )
                     {
-                         hasDigits = true;
+                         hasDigits =
+                              true;
+
+
                          ++m_Position;
                     }
                }
 
+
                if (!hasDigits)
                     return false;
+
 
                std::string numberText =
                     m_Text.substr(
@@ -378,20 +572,27 @@ private:
                          m_Position - begin
                     );
 
+
                try
                {
-                    out = JsonValue{};
+                    out =
+                         JsonValue{};
+
 
                     out.type =
                          JsonValue::Type::Number;
 
+
                     out.number =
-                         std::stod(numberText);
+                         std::stod(
+                              numberText
+                         );
                }
                catch (...)
                {
                     return false;
                }
+
 
                return true;
           }
@@ -407,23 +608,32 @@ private:
                if (!Consume('"'))
                     return false;
 
+
                out.clear();
 
+
                while (
-                    m_Position < m_Text.size()
+                    m_Position <
+                    m_Text.size()
                     )
                {
                     char c =
-                         m_Text[m_Position++];
+                         m_Text[
+                              m_Position++
+                         ];
+
 
                     if (c == '"')
                          return true;
 
+
                     if (c != '\\')
                     {
                          out += c;
+
                          continue;
                     }
+
 
                     if (
                          m_Position >=
@@ -433,8 +643,12 @@ private:
                          return false;
                     }
 
+
                     char escaped =
-                         m_Text[m_Position++];
+                         m_Text[
+                              m_Position++
+                         ];
+
 
                     switch (escaped)
                     {
@@ -471,26 +685,63 @@ private:
                          break;
 
                     default:
-                         // 暂时不处理 unicode escape
                          return false;
                     }
                }
+
 
                return false;
           }
 
 
           // ========================================================
-          // Whitespace
+          // Parse String Value
+          // ========================================================
+
+          bool ParseStringValue(
+               JsonValue& out)
+          {
+               std::string stringValue;
+
+
+               if (!ParseString(stringValue))
+                    return false;
+
+
+               out =
+                    JsonValue{};
+
+
+               out.type =
+                    JsonValue::Type::String;
+
+
+               out.string =
+                    std::move(
+                         stringValue
+                    );
+
+
+               return true;
+          }
+
+
+          // ========================================================
+          // Skip Whitespace
           // ========================================================
 
           void SkipWhitespace()
           {
                while (
-                    m_Position < m_Text.size() &&
+                    m_Position <
+                    m_Text.size() &&
                     std::isspace(
-                         static_cast<unsigned char>(
-                              m_Text[m_Position]
+                         static_cast<
+                         unsigned char
+                         >(
+                              m_Text[
+                                   m_Position
+                              ]
                               )
                     )
                     )
@@ -504,9 +755,11 @@ private:
           // Consume
           // ========================================================
 
-          bool Consume(char expected)
+          bool Consume(
+               char expected)
           {
                SkipWhitespace();
+
 
                if (
                     m_Position >=
@@ -516,6 +769,7 @@ private:
                     return false;
                }
 
+
                if (
                     m_Text[m_Position] !=
                     expected
@@ -524,7 +778,9 @@ private:
                     return false;
                }
 
+
                ++m_Position;
+
 
                return true;
           }
@@ -538,7 +794,10 @@ private:
                const char* text)
           {
                size_t length =
-                    std::strlen(text);
+                    std::strlen(
+                         text
+                    );
+
 
                if (
                     m_Position + length >
@@ -547,6 +806,7 @@ private:
                {
                     return false;
                }
+
 
                if (
                     m_Text.compare(
@@ -559,7 +819,10 @@ private:
                     return false;
                }
 
-               m_Position += length;
+
+               m_Position +=
+                    length;
+
 
                return true;
           }
@@ -567,9 +830,12 @@ private:
 
      private:
 
-          const std::string& m_Text;
+          const std::string&
+               m_Text;
 
-          size_t m_Position = 0;
+
+          size_t m_Position =
+               0;
      };
 
 
@@ -584,7 +850,10 @@ public:
           T& value)
      {
           const TypeInfo* info =
-               FindRuntimeType(value);
+               FindRuntimeType(
+                    value
+               );
+
 
           if (!info)
           {
@@ -592,26 +861,64 @@ public:
                     "{No applicable serialization found.}";
           }
 
+
           PropertyNode node =
                BuildPropertyNode(
                     "target",
                     value
                );
 
-          return SerializePropertyNode(node);
+
+          return
+               SerializePropertyNode(
+                    node
+               );
      }
 
+     template<typename T>
+     static bool LoadReference(
+          T& value,
+          const std::string& data)
+     {
+          JsonValue root;
+
+
+          if (!ParseRootObject(data, root))
+               return false;
+
+
+          PropertyNode node =
+               BuildPropertyNode(
+                    "target",
+                    value
+               );
+
+
+          return ApplyReferenceNode(
+               node,
+               root
+          );
+     }
 
      // ============================================================
      // Deserialize
      //
-     // data:
+     // 普通 Field：
      //
-     // {
-     //     "FieldOfView": 60,
-     //     "NearClip": 0.1,
-     //     "Perspective": true
-     // }
+     // Int
+     // Float
+     // Bool
+     // String
+     // Struct
+     // Vector
+     //
+     // 正常恢复。
+     //
+     // Reference：
+     //
+     // 忽略。
+     //
+     // 由外部 Reference Loader / Resolver 处理。
      // ============================================================
 
      template<typename T>
@@ -620,31 +927,28 @@ public:
           const std::string& data)
      {
           const TypeInfo* info =
-               FindRuntimeType(value);
+               FindRuntimeType(
+                    value
+               );
+
 
           if (!info)
                return false;
 
+
           JsonValue root;
 
-          Parser parser(data);
 
-          if (!parser.Parse(root))
+          if (!ParseRootObject(data, root))
                return false;
 
-          if (
-               root.type !=
-               JsonValue::Type::Object
-               )
-          {
-               return false;
-          }
 
           PropertyNode node =
                BuildPropertyNode(
                     "target",
                     value
                );
+
 
           return ApplyObject(
                node,
@@ -662,11 +966,13 @@ public:
      {
           std::ostringstream out;
 
+
           WriteNode(
                out,
                node,
                0
           );
+
 
           return out.str();
      }
@@ -685,10 +991,91 @@ public:
                filePath
           );
 
+
           if (!file)
                return false;
 
-          file << Serialize(value);
+
+          file <<
+               Serialize(
+                    value
+               );
+
+
+          return file.good();
+     }
+
+
+     // ============================================================
+     // Save With Type
+     // ============================================================
+
+     template<typename T>
+     static bool SaveWithType(
+          T& value,
+          const std::string& filePath)
+     {
+          std::ofstream file(
+               filePath
+          );
+
+
+          if (!file)
+               return false;
+
+
+          // =====================================================
+          // Reflection
+          // =====================================================
+
+          const TypeInfo* info =
+               ReflectionRegistry::Instance()
+               .Find(
+                    typeid(value)
+               );
+
+
+          if (!info)
+               return false;
+
+
+          // =====================================================
+          // TypeId
+          // =====================================================
+
+          TypeId typeId =
+               info->id;
+
+
+          file <<
+               "TypeId:";
+
+
+          file <<
+               typeId;
+
+
+          file <<
+               "\n";
+
+
+          // =====================================================
+          // Data
+          // =====================================================
+
+          file <<
+               "Data: ";
+
+
+          file <<
+               Serialize(
+                    value
+               );
+
+
+          file <<
+               "\n";
+
 
           return file.good();
      }
@@ -697,22 +1084,288 @@ public:
 private:
 
      // ============================================================
+     // Parse Root Object
+     // ============================================================
+
+     static bool ParseRootObject(
+          const std::string& data,
+          JsonValue& root)
+     {
+          Parser parser(data);
+
+
+          if (!parser.Parse(root))
+               return false;
+
+
+          return
+               root.type ==
+               JsonValue::Type::Object;
+     }
+
+
+     // ============================================================
+     // Read Int Member
+     // ============================================================
+
+     static bool ReadIntMember(
+          const JsonValue& object,
+          const std::string& name,
+          int& out)
+     {
+          const JsonValue* value =
+               FindObjectMember(
+                    object,
+                    name
+               );
+
+
+          if (!value)
+               return false;
+
+
+          if (
+               value->type !=
+               JsonValue::Type::Number
+               )
+          {
+               return false;
+          }
+
+
+          out =
+               static_cast<int>(
+                    value->number
+               );
+
+
+          return true;
+     }
+
+
+     // ============================================================
+     // Apply Reference Node
+     // ============================================================
+
+     static bool ApplyReferenceNode(
+          PropertyNode& property,
+          const JsonValue& json)
+     {
+          if (
+               property.type ==
+               FieldType::Reference
+               )
+          {
+               if (
+                    json.type ==
+                    JsonValue::Type::Null
+                    )
+               {
+                    if (property.setReference)
+                    {
+                         property.setReference(
+                              nullptr
+                         );
+                    }
+
+
+                    return true;
+               }
+
+
+               if (
+                    json.type !=
+                    JsonValue::Type::Object
+                    )
+               {
+                    return false;
+               }
+
+
+               ReferenceDescription reference;
+
+
+               if (!ReadIntMember(
+                    json,
+                    "ScopeLevel",
+                    reference.ScopeLevel
+                    ))
+               {
+                    return false;
+               }
+
+
+               if (!ReadIntMember(
+                    json,
+                    "ScopeID",
+                    reference.ScopeID
+                    ))
+               {
+                    return false;
+               }
+
+
+               if (!ReadIntMember(
+                    json,
+                    "ObjectID",
+                    reference.ObjectID
+                    ))
+               {
+                    return false;
+               }
+
+
+               EngineObject* resolved =
+                    ReferenceResolver::Instance()
+                    .GetItem(
+                         reference
+                    );
+
+
+               if (property.setReference)
+               {
+                    property.setReference(
+                         resolved
+                    );
+               }
+
+
+               return true;
+          }
+
+
+          if (
+               property.type ==
+               FieldType::Struct
+               )
+          {
+               if (
+                    json.type !=
+                    JsonValue::Type::Object
+                    )
+               {
+                    return true;
+               }
+
+
+               bool success =
+                    true;
+
+
+               for (
+                    auto& child :
+                    property.children
+                    )
+               {
+                    const JsonValue* jsonChild =
+                         FindObjectMember(
+                              json,
+                              child.name
+                         );
+
+
+                    if (!jsonChild)
+                         continue;
+
+
+                    if (!ApplyReferenceNode(
+                         child,
+                         *jsonChild
+                         ))
+                    {
+                         success =
+                              false;
+                    }
+               }
+
+
+               return success;
+          }
+
+
+          if (
+               property.type ==
+               FieldType::Vector
+               )
+          {
+               if (
+                    json.type !=
+                    JsonValue::Type::Array
+                    )
+               {
+                    return true;
+               }
+
+
+               bool success =
+                    true;
+
+
+               const size_t count =
+                    std::min(
+                         property.children.size(),
+                         json.array.size()
+                    );
+
+
+               for (
+                    size_t i = 0;
+                    i < count;
+                    ++i
+                    )
+               {
+                    if (!ApplyReferenceNode(
+                         property.children[i],
+                         json.array[i]
+                         ))
+                    {
+                         success =
+                              false;
+                    }
+               }
+
+
+               return success;
+          }
+
+
+          return true;
+     }
+
+
+     // ============================================================
+     // Set Node Value
+     // ============================================================
+
+     template<typename T>
+     static bool SetNodeValue(
+          PropertyNode& node,
+          T&& value)
+     {
+          if (!node.set)
+               return false;
+
+
+          try
+          {
+               node.set(
+                    std::any(
+                         std::forward<T>(value)
+                    )
+               );
+
+
+               return true;
+          }
+          catch (...)
+          {
+               return false;
+          }
+     }
+
+
+     // ============================================================
      // Apply Object
-     //
-     // PropertyNode:
-     //
-     // target
-     //   ├── FieldOfView
-     //   ├── NearClip
-     //   └── FarClip
-     //
-     // JsonValue:
-     //
-     // {
-     //   "FieldOfView": 60,
-     //   "NearClip": 0.1,
-     //   "FarClip": 1000
-     // }
      // ============================================================
 
      static bool ApplyObject(
@@ -727,10 +1380,15 @@ private:
                return false;
           }
 
-          bool success = true;
 
-          for (auto& child :
-               node.children)
+          bool success =
+               true;
+
+
+          for (
+               auto& child :
+               node.children
+               )
           {
                const JsonValue* jsonChild =
                     FindObjectMember(
@@ -738,8 +1396,10 @@ private:
                          child.name
                     );
 
+
                if (!jsonChild)
                     continue;
+
 
                if (
                     !ApplyNode(
@@ -748,9 +1408,11 @@ private:
                     )
                     )
                {
-                    success = false;
+                    success =
+                         false;
                }
           }
+
 
           return success;
      }
@@ -764,8 +1426,14 @@ private:
           PropertyNode& node,
           const JsonValue& value)
      {
-          switch (node.type)
+          switch (
+               node.type
+               )
           {
+               // =====================================================
+               // Int
+               // =====================================================
+
           case FieldType::Int:
           {
                if (
@@ -776,27 +1444,19 @@ private:
                     return false;
                }
 
-               if (!node.set)
-                    return false;
 
-               try
-               {
-                    int intValue =
-                         static_cast<int>(
-                              value.number
-                              );
-
-                    node.set(
-                         std::any(intValue)
-                    );
-
-                    return true;
-               }
-               catch (...)
-               {
-                    return false;
-               }
+               return SetNodeValue(
+                    node,
+                    static_cast<int>(
+                         value.number
+                    )
+               );
           }
+
+
+          // =====================================================
+          // Float
+          // =====================================================
 
           case FieldType::Float:
           {
@@ -808,27 +1468,19 @@ private:
                     return false;
                }
 
-               if (!node.set)
-                    return false;
 
-               try
-               {
-                    float floatValue =
-                         static_cast<float>(
-                              value.number
-                              );
-
-                    node.set(
-                         std::any(floatValue)
-                    );
-
-                    return true;
-               }
-               catch (...)
-               {
-                    return false;
-               }
+               return SetNodeValue(
+                    node,
+                    static_cast<float>(
+                         value.number
+                    )
+               );
           }
+
+
+          // =====================================================
+          // Bool
+          // =====================================================
 
           case FieldType::Bool:
           {
@@ -840,38 +1492,79 @@ private:
                     return false;
                }
 
-               if (!node.set)
-                    return false;
 
-               try
-               {
-                    node.set(
-                         std::any(value.boolean)
-                    );
-
-                    return true;
-               }
-               catch (...)
-               {
-                    return false;
-               }
+               return SetNodeValue(
+                    node,
+                    value.boolean
+               );
           }
+
+
+          // =====================================================
+          // String
+          // =====================================================
+
+          case FieldType::String:
+          {
+               if (
+                    value.type !=
+                    JsonValue::Type::String
+                    )
+               {
+                    return false;
+               }
+
+
+               return SetNodeValue(
+                    node,
+                    value.string
+               );
+          }
+
+
+          // =====================================================
+          // Struct
+          // =====================================================
 
           case FieldType::Struct:
           {
-               return ApplyObject(
-                    node,
-                    value
-               );
+               return
+                    ApplyObject(
+                         node,
+                         value
+                    );
           }
+
+
+          // =====================================================
+          // Vector
+          // =====================================================
 
           case FieldType::Vector:
           {
-               return ApplyArray(
-                    node,
-                    value
-               );
+               return
+                    ApplyArray(
+                         node,
+                         value
+                    );
           }
+
+
+          // =====================================================
+          // Reference
+          //
+          // JsonSerializer 不负责 Reference Load。
+          //
+          // 这里直接认为成功，然后跳过。
+          //
+          // Runtime pointer 保持原值。
+          // =====================================================
+
+          case FieldType::Reference:
+          {
+               return true;
+          }
+
 
           default:
                return false;
@@ -881,21 +1574,6 @@ private:
 
      // ============================================================
      // Apply Array
-     //
-     // 例如 Vector3 如果未来使用 vector<float>：
-     //
-     // [
-     //     1,
-     //     2,
-     //     3
-     // ]
-     //
-     // 或 vector<Vector3>
-     //
-     // [
-     //     {...},
-     //     {...}
-     // ]
      // ============================================================
 
      static bool ApplyArray(
@@ -910,7 +1588,10 @@ private:
                return false;
           }
 
-          bool success = true;
+
+          bool success =
+               true;
+
 
           const size_t count =
                std::min(
@@ -918,9 +1599,12 @@ private:
                     value.array.size()
                );
 
-          for (size_t i = 0;
+
+          for (
+               size_t i = 0;
                i < count;
-               ++i)
+               ++i
+               )
           {
                if (
                     !ApplyNode(
@@ -929,9 +1613,11 @@ private:
                     )
                     )
                {
-                    success = false;
+                    success =
+                         false;
                }
           }
+
 
           return success;
      }
@@ -954,12 +1640,21 @@ private:
                return nullptr;
           }
 
-          for (const auto& [key, value] :
-               object.object)
+
+          for (
+               const auto& [key, value] :
+               object.object
+               )
           {
-               if (key == name)
+               if (
+                    key ==
+                    name
+                    )
+               {
                     return &value;
+               }
           }
+
 
           return nullptr;
      }
@@ -974,8 +1669,14 @@ private:
           const PropertyNode& node,
           int indent)
      {
-          switch (node.type)
+          switch (
+               node.type
+               )
           {
+               // =====================================================
+               // Int
+               // =====================================================
+
           case FieldType::Int:
           {
                out <<
@@ -983,8 +1684,14 @@ private:
                          node.value
                     );
 
+
                break;
           }
+
+
+          // =====================================================
+          // Float
+          // =====================================================
 
           case FieldType::Float:
           {
@@ -993,8 +1700,14 @@ private:
                          node.value
                     );
 
+
                break;
           }
+
+
+          // =====================================================
+          // Bool
+          // =====================================================
 
           case FieldType::Bool:
           {
@@ -1007,8 +1720,42 @@ private:
                          : "false"
                          );
 
+
                break;
           }
+
+
+          // =====================================================
+          // String
+          // =====================================================
+
+          case FieldType::String:
+          {
+               out <<
+                    "\"";
+
+
+               out <<
+                    Escape(
+                         std::any_cast<
+                         std::string
+                         >(
+                              node.value
+                         )
+                    );
+
+
+               out <<
+                    "\"";
+
+
+               break;
+          }
+
+
+          // =====================================================
+          // Struct
+          // =====================================================
 
           case FieldType::Struct:
           {
@@ -1018,8 +1765,14 @@ private:
                     indent
                );
 
+
                break;
           }
+
+
+          // =====================================================
+          // Vector
+          // =====================================================
 
           case FieldType::Vector:
           {
@@ -1029,12 +1782,33 @@ private:
                     indent
                );
 
+
                break;
           }
 
+
+          // =====================================================
+          // Reference
+          // =====================================================
+
+          case FieldType::Reference:
+          {
+               WriteReference(
+                    out,
+                    node,
+                    indent
+               );
+
+
+               break;
+          }
+
+
           default:
           {
-               out << "null";
+               out <<
+                    "null";
+
 
                break;
           }
@@ -1051,11 +1825,17 @@ private:
           const PropertyNode& node,
           int indent)
      {
-          out << "{";
+          out <<
+               "{";
 
-          if (!node.children.empty())
+
+          if (
+               !node.children.empty()
+               )
           {
-               out << "\n";
+               out <<
+                    "\n";
+
 
                for (
                     size_t i = 0;
@@ -1066,15 +1846,26 @@ private:
                     const auto& child =
                          node.children[i];
 
+
                     WriteIndent(
                          out,
                          indent + 1
                     );
 
+
                     out <<
-                         "\"" <<
-                         Escape(child.name) <<
+                         "\"";
+
+
+                    out <<
+                         Escape(
+                              child.name
+                         );
+
+
+                    out <<
                          "\": ";
+
 
                     WriteNode(
                          out,
@@ -1082,16 +1873,21 @@ private:
                          indent + 1
                     );
 
+
                     if (
                          i + 1 <
                          node.children.size()
                          )
                     {
-                         out << ",";
+                         out <<
+                              ",";
                     }
 
-                    out << "\n";
+
+                    out <<
+                         "\n";
                }
+
 
                WriteIndent(
                     out,
@@ -1099,7 +1895,9 @@ private:
                );
           }
 
-          out << "}";
+
+          out <<
+               "}";
      }
 
 
@@ -1112,11 +1910,17 @@ private:
           const PropertyNode& node,
           int indent)
      {
-          out << "[";
+          out <<
+               "[";
 
-          if (!node.children.empty())
+
+          if (
+               !node.children.empty()
+               )
           {
-               out << "\n";
+               out <<
+                    "\n";
+
 
                for (
                     size_t i = 0;
@@ -1127,10 +1931,12 @@ private:
                     const auto& child =
                          node.children[i];
 
+
                     WriteIndent(
                          out,
                          indent + 1
                     );
+
 
                     WriteNode(
                          out,
@@ -1138,16 +1944,21 @@ private:
                          indent + 1
                     );
 
+
                     if (
                          i + 1 <
                          node.children.size()
                          )
                     {
-                         out << ",";
+                         out <<
+                              ",";
                     }
 
-                    out << "\n";
+
+                    out <<
+                         "\n";
                }
+
 
                WriteIndent(
                     out,
@@ -1155,7 +1966,123 @@ private:
                );
           }
 
-          out << "]";
+
+          out <<
+               "]";
+     }
+
+
+     // ============================================================
+     // Write Reference
+     // ============================================================
+
+     static void WriteReference(
+          std::ostringstream& out,
+          const PropertyNode& node,
+          int indent)
+     {
+          // =====================================================
+          // Null
+          // =====================================================
+
+          if (
+               node.reference.isNull
+               )
+          {
+               out <<
+                    "null";
+
+
+               return;
+          }
+
+
+          // =====================================================
+          // Begin
+          // =====================================================
+
+          out <<
+               "{\n";
+
+
+          // =====================================================
+          // ScopeLevel
+          // =====================================================
+
+          WriteIndent(
+               out,
+               indent + 1
+          );
+
+
+          out <<
+               "\"ScopeLevel\": ";
+
+
+          out <<
+               node.reference.ScopeLevel;
+
+
+          out <<
+               ",\n";
+
+
+          // =====================================================
+          // ScopeID
+          // =====================================================
+
+          WriteIndent(
+               out,
+               indent + 1
+          );
+
+
+          out <<
+               "\"ScopeID\": ";
+
+
+          out <<
+               node.reference.ScopeID;
+
+
+          out <<
+               ",\n";
+
+
+          // =====================================================
+          // ObjectID
+          // =====================================================
+
+          WriteIndent(
+               out,
+               indent + 1
+          );
+
+
+          out <<
+               "\"ObjectID\": ";
+
+
+          out <<
+               node.reference.ObjectID;
+
+
+          out <<
+               "\n";
+
+
+          // =====================================================
+          // End
+          // =====================================================
+
+          WriteIndent(
+               out,
+               indent
+          );
+
+
+          out <<
+               "}";
      }
 
 
@@ -1184,35 +2111,63 @@ private:
      {
           std::string result;
 
-          for (char c : str)
+
+          for (
+               char c :
+          str
+               )
           {
                switch (c)
                {
                case '"':
-                    result += "\\\"";
+                    result +=
+                         "\\\"";
                     break;
+
 
                case '\\':
-                    result += "\\\\";
+                    result +=
+                         "\\\\";
                     break;
+
 
                case '\n':
-                    result += "\\n";
+                    result +=
+                         "\\n";
                     break;
+
 
                case '\r':
-                    result += "\\r";
+                    result +=
+                         "\\r";
                     break;
+
 
                case '\t':
-                    result += "\\t";
+                    result +=
+                         "\\t";
                     break;
 
+
+               case '\b':
+                    result +=
+                         "\\b";
+                    break;
+
+
+               case '\f':
+                    result +=
+                         "\\f";
+                    break;
+
+
                default:
-                    result += c;
+                    result +=
+                         c;
                     break;
                }
           }
+
 
           return result;
      }

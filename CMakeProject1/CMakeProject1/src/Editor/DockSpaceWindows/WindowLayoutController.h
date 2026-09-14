@@ -21,6 +21,8 @@ public:
 	HierarchyView m_HierarchyView;
 	InspectorView m_InspectorView;
 	SceneView m_SceneView;
+	AssetView m_AssetView;
+	
 private:
 
 }; 

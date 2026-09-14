@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <algorithm>
@@ -15,75 +16,8 @@
 #include "Engine/Components/RenderingRelatedComponents.h"
 #include "VertexDataController.h"
 
-
-// ============================================================
-// GPU Light Structures
-// ============================================================
-
-struct alignas(16) GPUPointLight
-{
-     glm::vec4 position;
-     glm::vec4 colorIntensity;
-     glm::vec4 params;
-};
-
-struct alignas(16) GPUSpotLight
-{
-     glm::vec4 position;
-     glm::vec4 direction;
-     glm::vec4 colorIntensity;
-     glm::vec4 params;
-};
-
-struct alignas(16) GPUDirectionalLight
-{
-     glm::vec4 direction;
-     glm::vec4 colorIntensity;
-};
-
-
-// ============================================================
-// GPU Light Block
-// ============================================================
-
-struct GPULightBlock
-{
-     GPUPointLight pointLights[10];
-     GPUSpotLight spotLights[10];
-     GPUDirectionalLight directionalLights[10];
-
-     glm::vec4 ambientColor;
-
-     int pointLightCount;
-     int spotLightCount;
-     int directionalLightCount;
-     int padding;
-};
-
-
-// ============================================================
-// Camera Data
-// ============================================================
-
-struct CameraData
-{
-     glm::mat4 View;
-     glm::mat4 Projection;
-     glm::mat4 ViewProjection;
-
-     glm::vec3 Position;
-     unsigned int targetFramebuffer;
-};
-
-
-struct GPUCameraData
-{
-     glm::mat4 View;
-     glm::mat4 Projection;
-     glm::mat4 ViewProjection;
-
-     glm::vec4 Position;
-};
+#include "rendering/GPUDataShapes.h"
+#include "rendering/Lighting.h"
 
 
 // ============================================================
@@ -95,17 +29,12 @@ class RenderSystem
 public:
 
      // --------------------------------------------------------
-     // Constants
-     // --------------------------------------------------------
-
-     static constexpr int MaxPointLights = 10;
-     static constexpr int MaxSpotLights = 10;
-     static constexpr int MaxDirectionalLights = 10;
-
-
-     // --------------------------------------------------------
      // Construction / Destruction
      // --------------------------------------------------------
+     Lighting& GetLighting()
+     {
+          return m_Lighting;
+     }
 
      explicit RenderSystem(
           OpenGLVertexDataController& vertexDataController
@@ -138,14 +67,13 @@ private:
      // ========================================================
 
      GLuint m_CameraUBO = 0;
-     GLuint m_LightUBO = 0;
 
 
      // ========================================================
-     // CPU-side Light Data
+     // Lighting
      // ========================================================
 
-     GPULightBlock m_Lights{};
+     Lighting m_Lighting;
 
 
      // ========================================================
@@ -202,31 +130,10 @@ private:
 
 
           // ----------------------------------------------------
-          // Light UBO
+          // Lighting
           // ----------------------------------------------------
 
-          glGenBuffers(
-               1,
-               &m_LightUBO
-          );
-
-          glBindBuffer(
-               GL_UNIFORM_BUFFER,
-               m_LightUBO
-          );
-
-          glBufferData(
-               GL_UNIFORM_BUFFER,
-               sizeof(GPULightBlock),
-               &m_Lights,
-               GL_DYNAMIC_DRAW
-          );
-
-          glBindBufferBase(
-               GL_UNIFORM_BUFFER,
-               1,
-               m_LightUBO
-          );
+          m_Lighting.Bind();
 
 
           // ----------------------------------------------------
@@ -254,17 +161,6 @@ private:
                );
 
                m_CameraUBO = 0;
-          }
-
-
-          if (m_LightUBO != 0)
-          {
-               glDeleteBuffers(
-                    1,
-                    &m_LightUBO
-               );
-
-               m_LightUBO = 0;
           }
      }
 
@@ -328,260 +224,32 @@ public:
      }
 
 
-     // ========================================================
-     // Point Light
-     // ========================================================
 
-     int UpdatePointLightData(
-          int index,
-          const Vector3& position,
-          const Vector3& color,
-          float intensity,
-          float range
-     )
+     const Lighting& GetLighting() const
      {
-          // ----------------------------------------------------
-          // Allocate new light
-          // ----------------------------------------------------
-
-          if (index == -1)
-          {
-               if (m_Lights.pointLightCount >= MaxPointLights)
-                    return -1;
-
-               index = m_Lights.pointLightCount++;
-          }
-          else
-          {
-               if (
-                    index < 0 ||
-                    index >= m_Lights.pointLightCount
-                    )
-               {
-                    return -1;
-               }
-          }
-
-
-          // ----------------------------------------------------
-          // CPU data
-          // ----------------------------------------------------
-
-          GPUPointLight& light =
-               m_Lights.pointLights[index];
-
-
-          light.position = glm::vec4(
-               position.x,
-               position.y,
-               position.z,
-               1.0f
-          );
-
-
-          light.colorIntensity = glm::vec4(
-               color.x,
-               color.y,
-               color.z,
-               intensity
-          );
-
-
-          light.params = glm::vec4(
-               range,
-               0.0f,
-               0.0f,
-               0.0f
-          );
-
-
-          // ----------------------------------------------------
-          // GPU update
-          // ----------------------------------------------------
-
-          UpdateLightRange(
-               offsetof(
-                    GPULightBlock,
-                    pointLights
-               ) +
-               sizeof(GPUPointLight) * index,
-
-               sizeof(GPUPointLight),
-
-               &light
-          );
-
-
-          // Count changed when allocating a new light.
-          //
-          // Upload it as well.
-          if (index == m_Lights.pointLightCount - 1)
-          {
-               UpdateLightRange(
-                    offsetof(
-                         GPULightBlock,
-                         pointLightCount
-                    ),
-
-                    sizeof(int),
-
-                    &m_Lights.pointLightCount
-               );
-          }
-
-
-          return index;
-     }
-
-
-     // ========================================================
-     // Spot Light
-     // ========================================================
-
-     int UpdateSpotLightData(
-          int index,
-          const Vector3& position,
-          const Vector3& direction,
-          const Vector3& color,
-          float intensity,
-          float innerCone,
-          float outerCone,
-          float range
-     )
-     {
-          // ----------------------------------------------------
-          // Allocate new light
-          // ----------------------------------------------------
-
-          if (index == -1)
-          {
-               if (m_Lights.spotLightCount >= MaxSpotLights)
-                    return -1;
-
-               index = m_Lights.spotLightCount++;
-          }
-          else
-          {
-               if (
-                    index < 0 ||
-                    index >= m_Lights.spotLightCount
-                    )
-               {
-                    return -1;
-               }
-          }
-
-
-          // ----------------------------------------------------
-          // CPU data
-          // ----------------------------------------------------
-
-          GPUSpotLight& light =
-               m_Lights.spotLights[index];
-
-
-          light.position = glm::vec4(
-               position.x,
-               position.y,
-               position.z,
-               1.0f
-          );
-
-
-          light.direction = glm::vec4(
-               direction.x,
-               direction.y,
-               direction.z,
-               0.0f
-          );
-
-
-          light.colorIntensity = glm::vec4(
-               color.x,
-               color.y,
-               color.z,
-               intensity
-          );
-
-
-          light.params = glm::vec4(
-               innerCone,
-               outerCone,
-               range,
-               0.0f
-          );
-
-
-          // ----------------------------------------------------
-          // GPU update
-          // ----------------------------------------------------
-
-          UpdateLightRange(
-               offsetof(
-                    GPULightBlock,
-                    spotLights
-               ) +
-               sizeof(GPUSpotLight) * index,
-
-               sizeof(GPUSpotLight),
-
-               &light
-          );
-
-
-          // Upload count if a new light was allocated.
-          if (index == m_Lights.spotLightCount - 1)
-          {
-               UpdateLightRange(
-                    offsetof(
-                         GPULightBlock,
-                         spotLightCount
-                    ),
-
-                    sizeof(int),
-
-                    &m_Lights.spotLightCount
-               );
-          }
-
-
-          return index;
-     }
-
-
-     // ========================================================
-     // Ambient Light
-     // ========================================================
-     void UpdateAmbientLightData(const glm::vec3& color)
-     {
-          m_Lights.ambientColor = glm::vec4(color, 1.0f);
-
-          std::size_t offset = offsetof(GPULightBlock, ambientColor);
-
-          UpdateLightRange(
-               offset,
-               sizeof(glm::vec4),
-               &m_Lights.ambientColor
-          );
+          return m_Lighting;
      }
 
 
      // ========================================================
      // Camera Rendering
      // ========================================================
-     void RenderForCamera(const Camera& cam)
+
+     void RenderForCamera(
+          const Camera& cam
+     )
      {
-          // ============================================================
+          // ====================================================
           // 1. Camera GameObject
-          // ============================================================
+          // ====================================================
 
           if (cam.gameObject == nullptr)
                return;
 
 
-          // ============================================================
+          // ====================================================
           // 2. Camera Transform
-          // ============================================================
+          // ====================================================
 
           Vector3 position =
                cam.gameObject
@@ -594,9 +262,9 @@ public:
                ->GetRotation();
 
 
-          // ============================================================
+          // ====================================================
           // 3. Camera GLM Transform
-          // ============================================================
+          // ====================================================
 
           glm::vec3 glmPosition(
                position.x,
@@ -626,9 +294,9 @@ public:
                glm::inverse(world);
 
 
-          // ============================================================
+          // ====================================================
           // 4. Projection
-          // ============================================================
+          // ====================================================
 
           float aspect = 1.0f;
 
@@ -649,15 +317,17 @@ public:
                );
 
 
-          // ============================================================
+          // ====================================================
           // 5. Camera GPU Data
-          // ============================================================
+          // ====================================================
 
           GPUCameraData gpuCamera{};
 
-          gpuCamera.View = view;
+          gpuCamera.View =
+               view;
 
-          gpuCamera.Projection = projection;
+          gpuCamera.Projection =
+               projection;
 
           gpuCamera.ViewProjection =
                projection *
@@ -670,9 +340,9 @@ public:
                );
 
 
-          // ============================================================
+          // ====================================================
           // 6. Framebuffer
-          // ============================================================
+          // ====================================================
 
           GLint previousFBO = 0;
 
@@ -687,9 +357,9 @@ public:
           );
 
 
-          // ============================================================
+          // ====================================================
           // 7. Viewport
-          // ============================================================
+          // ====================================================
 
           GLint viewport[4]{};
 
@@ -699,9 +369,9 @@ public:
           );
 
 
-          // ============================================================
+          // ====================================================
           // 8. Upload Camera UBO
-          // ============================================================
+          // ====================================================
 
           glBindBuffer(
                GL_UNIFORM_BUFFER,
@@ -721,9 +391,9 @@ public:
           );
 
 
-          // ============================================================
+          // ====================================================
           // 9. Bind UBOs
-          // ============================================================
+          // ====================================================
 
           glBindBufferBase(
                GL_UNIFORM_BUFFER,
@@ -731,16 +401,12 @@ public:
                m_CameraUBO
           );
 
-          glBindBufferBase(
-               GL_UNIFORM_BUFFER,
-               1,
-               m_LightUBO
-          );
+          m_Lighting.Bind();
 
 
-          // ============================================================
+          // ====================================================
           // 10. Clear
-          // ============================================================
+          // ====================================================
 
           glClearColor(
                0.1f,
@@ -755,9 +421,9 @@ public:
           );
 
 
-          // ============================================================
+          // ====================================================
           // 11. Render Objects
-          // ============================================================
+          // ====================================================
 
           for (Renderer* rd : m_Renderers)
           {
@@ -771,9 +437,9 @@ public:
                     continue;
 
 
-               // --------------------------------------------------------
+               // ------------------------------------------------
                // Transform
-               // --------------------------------------------------------
+               // ------------------------------------------------
 
                Vector3 objectPosition =
                     rd->gameObject
@@ -791,9 +457,9 @@ public:
                     ->GetScale();
 
 
-               // --------------------------------------------------------
+               // ------------------------------------------------
                // Model Matrix
-               // --------------------------------------------------------
+               // ------------------------------------------------
 
                glm::mat4 model(1.0f);
 
@@ -834,20 +500,18 @@ public:
                     );
 
 
-               // ========================================================
+               // =================================================
                // Shader
-               // ========================================================
+               // =================================================
 
-               rd->shader.use();
+               rd->material->shader->use();
 
-
-               rd->shader.setMat4(
+               rd->material->shader->setMat4(
                     "u_Model",
                     model
                );
 
-
-               rd->shader.setVec4(
+               rd->material->shader->setVec4(
                     "u_Color",
                     1.0f,
                     1.0f,
@@ -856,9 +520,9 @@ public:
                );
 
 
-               // ========================================================
+               // =================================================
                // Mesh
-               // ========================================================
+               // =================================================
 
                m_VertexDataController.useMesh(
                     rd->renderSystemIndex
@@ -870,9 +534,9 @@ public:
           }
 
 
-          // ============================================================
+          // ====================================================
           // Restore FBO
-          // ============================================================
+          // ====================================================
 
           glBindFramebuffer(
                GL_DRAW_FRAMEBUFFER,
@@ -880,9 +544,9 @@ public:
           );
 
 
-          // ============================================================
+          // ====================================================
           // Restore viewport
-          // ============================================================
+          // ====================================================
 
           glViewport(
                viewport[0],
@@ -891,6 +555,7 @@ public:
                viewport[3]
           );
      }
+
 
 private:
 
@@ -917,8 +582,7 @@ private:
                // For the default framebuffer, we cannot query
                // the texture attachment.
                //
-               // In this case use the camera's normal dimensions
-               // elsewhere or leave the existing viewport intact.
+               // Leave the existing viewport intact.
                return;
           }
 
@@ -1066,302 +730,4 @@ private:
                );
           }
      }
-
-
-public:
-
-     // ========================================================
-     // Ambient Light Setter
-     // ========================================================
-
-     void SetAmbientColor(
-          const glm::vec3& color
-     )
-     {
-          m_Lights.ambientColor =
-               glm::vec4(
-                    color,
-                    1.0f
-               );
-
-
-          UpdateLightRange(
-               offsetof(
-                    GPULightBlock,
-                    ambientColor
-               ),
-
-               sizeof(glm::vec4),
-
-               &m_Lights.ambientColor
-          );
-     }
-
-
-     // ========================================================
-     // Point Light Setter
-     // ========================================================
-
-     void SetPointLight(
-          int index,
-          const GPUPointLight& light
-     )
-     {
-          if (
-               index < 0 ||
-               index >= MaxPointLights
-               )
-          {
-               return;
-          }
-
-
-          m_Lights.pointLights[index] =
-               light;
-
-
-          UpdateLightRange(
-               offsetof(
-                    GPULightBlock,
-                    pointLights
-               ) +
-               sizeof(GPUPointLight) * index,
-
-               sizeof(GPUPointLight),
-
-               &light
-          );
-     }
-
-
-     // ========================================================
-     // Spot Light Setter
-     // ========================================================
-
-     void SetSpotLight(
-          int index,
-          const GPUSpotLight& light
-     )
-     {
-          if (
-               index < 0 ||
-               index >= MaxSpotLights
-               )
-          {
-               return;
-          }
-
-
-          m_Lights.spotLights[index] =
-               light;
-
-
-          UpdateLightRange(
-               offsetof(
-                    GPULightBlock,
-                    spotLights
-               ) +
-               sizeof(GPUSpotLight) * index,
-
-               sizeof(GPUSpotLight),
-
-               &light
-          );
-     }
-
-
-     // ========================================================
-     // Directional Light Setter
-     // ========================================================
-
-     void SetDirectionalLight(
-          int index,
-          const GPUDirectionalLight& light
-     )
-     {
-          if (
-               index < 0 ||
-               index >= MaxDirectionalLights
-               )
-          {
-               return;
-          }
-
-
-          m_Lights.directionalLights[index] =
-               light;
-
-
-          UpdateLightRange(
-               offsetof(
-                    GPULightBlock,
-                    directionalLights
-               ) +
-               sizeof(GPUDirectionalLight) * index,
-
-               sizeof(GPUDirectionalLight),
-
-               &light
-          );
-     }
-
-
-     // ========================================================
-     // Point Light Count
-     // ========================================================
-
-     void SetPointLightCount(
-          int count
-     )
-     {
-          count =
-               Clamp(
-                    count,
-                    0,
-                    MaxPointLights
-               );
-
-
-          m_Lights.pointLightCount =
-               count;
-
-
-          UpdateLightRange(
-               offsetof(
-                    GPULightBlock,
-                    pointLightCount
-               ),
-
-               sizeof(int),
-
-               &m_Lights.pointLightCount
-          );
-     }
-
-
-     // ========================================================
-     // Spot Light Count
-     // ========================================================
-
-     void SetSpotLightCount(
-          int count
-     )
-     {
-          count =
-               Clamp(
-                    count,
-                    0,
-                    MaxSpotLights
-               );
-
-
-          m_Lights.spotLightCount =
-               count;
-
-
-          UpdateLightRange(
-               offsetof(
-                    GPULightBlock,
-                    spotLightCount
-               ),
-
-               sizeof(int),
-
-               &m_Lights.spotLightCount
-          );
-     }
-
-
-     // ========================================================
-     // Directional Light Count
-     // ========================================================
-
-     void SetDirectionalLightCount(
-          int count
-     )
-     {
-          count =
-               Clamp(
-                    count,
-                    0,
-                    MaxDirectionalLights
-               );
-
-
-          m_Lights.directionalLightCount =
-               count;
-
-
-          UpdateLightRange(
-               offsetof(
-                    GPULightBlock,
-                    directionalLightCount
-               ),
-
-               sizeof(int),
-
-               &m_Lights.directionalLightCount
-          );
-     }
-
-
-private:
-
-     // ========================================================
-     // Update Light UBO
-     // ========================================================
-
-     void UpdateLightRange(
-          std::size_t offset,
-          std::size_t size,
-          const void* data
-     )
-     {
-          if (m_LightUBO == 0)
-               return;
-
-          if (data == nullptr)
-               return;
-
-
-          glBindBuffer(
-               GL_UNIFORM_BUFFER,
-               m_LightUBO
-          );
-
-
-          glBufferSubData(
-               GL_UNIFORM_BUFFER,
-               static_cast<GLintptr>(offset),
-               static_cast<GLsizeiptr>(size),
-               data
-          );
-
-
-          glBindBuffer(
-               GL_UNIFORM_BUFFER,
-               0
-          );
-     }
-
-
-     // ========================================================
-     // Integer Clamp
-     // ========================================================
-
-     static int Clamp(
-          int value,
-          int minValue,
-          int maxValue
-     )
-     {
-          return std::max(
-               minValue,
-               std::min(
-                    value,
-                    maxValue
-               )
-          );
-     }
 };
-

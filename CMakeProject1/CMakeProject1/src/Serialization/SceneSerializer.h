@@ -315,6 +315,46 @@ public:
                     );
                }
           }
+
+          for (
+               const auto& serializedObject :
+               objects
+               )
+          {
+               for (
+                    const auto& serializedComponent :
+                    serializedObject.components
+                    )
+               {
+                    auto it =
+                         components.find(
+                              serializedComponent.objId
+                         );
+
+
+                    if (
+                         it ==
+                         components.end()
+                         )
+                    {
+                         continue;
+                    }
+
+
+                    Component* component =
+                         it->second;
+
+
+                    // =============================================
+                    // Data -> Component
+                    // =============================================
+
+                    JsonSerializer::LoadReference(
+                         *component,
+                         serializedComponent.data
+                    );
+               }
+          }
      }
 
 

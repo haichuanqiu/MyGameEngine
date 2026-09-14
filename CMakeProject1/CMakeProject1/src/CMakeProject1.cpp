@@ -6,7 +6,11 @@
 #include <chrono>
 #include "Testing/tryLoadScene.h"
 #include "Testing/OnSceneCreated.h"
+#include "Editor/EditorApplication.h"
 
+#include "Assets/Material.h"
+#include "Assets/AssetManager.h"
+#include "rendering/ShaderManager.h"
 int main()
 {
      // ------------------------
@@ -24,20 +28,45 @@ int main()
      WindowLayoutController mylayout(MiniEngineWindow.GetNativeWindow());
      int frameBuffer= mylayout.m_SceneView.GetFramebuffer();
      EditorApplication editor(frameBuffer);
-     mylayout.m_HierarchyView.SetTarget(
-          &editor.m_Engine->currentScene);
+     Scene* scene =
+          &editor.m_Engine->currentScene;
 
-     mylayout.m_HierarchyView.SetChosenIndex(
-          &editor.SceenChoosenItemHierarchyIndex);
+     mylayout.m_HierarchyView.SetTarget(scene);
 
-     // Inspector 也指向同一个 Scene 和 index
-     mylayout.m_InspectorView.SetTarget(
-          &editor.m_Engine->currentScene);
+     mylayout.m_HierarchyView.OnGameObjectClicked.Subscribe(
+          [&](GameObject* gameObject)
+          {
+               if (gameObject)
+               {
+                    mylayout.m_InspectorView.SetTarget(gameObject);
+               }
+               else
+               {
+                    mylayout.m_InspectorView.ClearTarget();
+               }
+          }
+     );
+     mylayout.m_AssetView.OnObjectIDClicked.Subscribe(
+          [&](int runtimeID)
+          {
+               auto asset =
+                    AssetManager::Instance()
+                    .Find<Asset>(runtimeID);
 
-     mylayout.m_InspectorView.SetChosenIndex(
-          &editor.SceenChoosenItemHierarchyIndex);
-     testScene::OnSceneCreated(*editor.m_Engine);
-     //testLoadScene::OnSceneCreated(*editor.m_Engine);
+               if (asset)
+               {
+                    mylayout.m_InspectorView.SetTarget(
+                         asset
+                    );
+               }
+               else
+               {
+                    mylayout.m_InspectorView.ClearTarget();
+               }
+          }
+     );
+    //testScene::OnSceneCreated(editor, *editor.m_Engine, mylayout);
+     testLoadScene::OnSceneCreated(*editor.m_Engine);
      double targetFrameTime = 1.0 / 60.0;
     
 

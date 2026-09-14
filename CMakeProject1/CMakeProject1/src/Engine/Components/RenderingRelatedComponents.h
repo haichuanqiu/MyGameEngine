@@ -4,18 +4,21 @@
 #include "Engine/DataStructure.h"
 #include "rendering/Shader.h"
 #include "Serialization/ComponentRegistry.h"
+#include "Assets/Material.h"
 class GameObject;
 class RenderSystem;
 class Renderer : public Component
 {  
 public:
-	Shader shader;
+	Material* material;
 	int renderSystemIndex = -1;
+	
+private:
 };
 REFLECT(
 	Renderer,
-
 	FIELD(Renderer, renderSystemIndex),
+	REF_FIELD(Renderer, material),
 
 )
 REGISTER_COMPONENT(Renderer)

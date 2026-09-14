@@ -16,7 +16,7 @@ public:
 
 public:
      Scene currentScene;
-
+     std::vector<Scene> allScene;
      OpenGLVertexDataController vertexDataController;
      RenderSystem renderSystem;
 };
