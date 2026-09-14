@@ -199,18 +199,18 @@ namespace testScene {
 
 		Test->material = AssetManager::Instance().Find<Material>(materialID);
 
-		Test->myRefGameObject = engine.currentScene.GetObjectOfType<std::remove_reference_t<decltype(light)>>(light.ReferenceInfo.ObjectID);
+		Test->myRefGameObject = ReferenceResolver:: Instance().GetItemOfType<GameObject>(light.ReferenceInfo);
 
-		Test->rd = engine.currentScene.GetObjectOfType<std::remove_pointer_t<decltype(renderer)>>(renderer->ReferenceInfo.ObjectID);
+		//Test->myRefGameObject = engine.currentScene.GetObjectOfType<std::remove_reference_t<decltype(light)>>(light.ReferenceInfo.ObjectID);
 
-		Test->ts = Engine::Instance().GetScene(light.ReferenceInfo.ScopeID)->GetObjectOfType<GameObject>(light.ReferenceInfo.ObjectID)->transform;
-		
+		//Test->rd = engine.currentScene.GetObjectOfType<std::remove_pointer_t<decltype(renderer)>>(renderer->ReferenceInfo.ObjectID);
+		Test->rd = ReferenceResolver::Instance().GetItemOfType<Renderer>(renderer->ReferenceInfo);
+		//Test->ts = Engine::Instance().GetScene(light.ReferenceInfo.ScopeID)->GetObjectOfType<GameObject>(light.ReferenceInfo.ObjectID)->transform;
+		Test->ts = ReferenceResolver::Instance().GetItemOfType<GameObject>(light.ReferenceInfo)->transform;
 		Test->testInt = 123;
 		Test->testFloat = 45.67f;
 		Test->testBool = true;
 		Test->testString = "ReferenceTest Primitive Test";
-		Test->testString =
-			"ReferenceTest Primitive Test";
 
 		auto s=SceneSerializer::Serialize(engine.currentScene);
 		SceneSerializer::SaveSceneTo(engine.currentScene,"../../../../CMakeProject1/assets/SceneData");
