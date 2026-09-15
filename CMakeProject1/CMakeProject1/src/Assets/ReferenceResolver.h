@@ -10,8 +10,10 @@ public:
           ReferenceDescription refDes
      );
 
-
-
+     template<typename T>
+     std::vector<T*> FindAllOfType(
+          ReferenceDescription targetScope
+     );
      template<typename T>
      T* GetItemOfType(
           ReferenceDescription refDes

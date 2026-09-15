@@ -14,3 +14,97 @@ EngineObject* ReferenceResolver::GetItem(ReferenceDescription refDes) {
 	}
 	return nullptr;
 }
+
+template<typename T>
+std::vector<T*> ReferenceResolver::FindAllOfType(
+     ReferenceDescription targetScope)
+{
+     std::vector<T*> result;
+
+
+     // ============================================================
+     // Scene
+     // ============================================================
+
+     if (targetScope.ScopeLevel == 0)
+     {
+          Scene* scene =
+               Engine::Instance()
+               .GetScene(
+                    targetScope.ScopeID
+               );
+
+          if (scene)
+          {
+               auto objects =
+                    scene->FindAllOfType<T>();
+
+               for (T* object : objects)
+               {
+                    if (!object)
+                         continue;
+
+                    if (
+                         !ReferenceDescription::Suitable(
+                              targetScope,
+                              object->ReferenceInfo
+                         )
+                         )
+                    {
+                         continue;
+                    }
+
+                    result.push_back(
+                         object
+                    );
+               }
+          }
+     }
+
+
+     // ============================================================
+     // Assets
+     // ============================================================
+
+     auto assets =
+          AssetManager::Instance()
+          .FindAllOfType<T>();
+
+     for (T* asset : assets)
+     {
+          if (!asset)
+               continue;
+
+          if (
+               !ReferenceDescription::Suitable(
+                    targetScope,
+                    asset->ReferenceInfo
+               )
+               )
+          {
+               continue;
+          }
+
+          result.push_back(
+               asset
+          );
+     }
+
+
+     return result;
+}
+
+
+// ============================================================
+// Explicit Template Instantiation
+// ============================================================
+
+template EngineObject*
+ReferenceResolver::GetItemOfType<EngineObject>(
+     ReferenceDescription
+);
+
+template std::vector<EngineObject*>
+ReferenceResolver::FindAllOfType<EngineObject>(
+     ReferenceDescription
+);

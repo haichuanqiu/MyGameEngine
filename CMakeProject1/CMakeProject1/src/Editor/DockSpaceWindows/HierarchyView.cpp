@@ -3,28 +3,70 @@
 #include "Engine/Scene.h"
 
 
+
 void HierarchyView::Draw()
 {
      ImGui::Begin("Hierarchy");
 
+
+     // ============================================================
+     // Save Button
+     // ============================================================
+
+     if (ImGui::Button("Save"))
+     {
+          OnSaveClicked.Invoke();
+     }
+
+
+     ImGui::Separator();
+
+
+     // ============================================================
+     // No Scene
+     // ============================================================
+
      if (m_TargetScene == nullptr)
      {
+          ImGui::TextDisabled(
+               "No Scene"
+          );
+
           ImGui::End();
+
           return;
      }
 
-     for (const auto& gameObjectPtr :
-          m_TargetScene->GetAllGameObjects())
+
+     // ============================================================
+     // GameObjects
+     // ============================================================
+
+     for (
+          const auto& gameObjectPtr :
+          m_TargetScene->GetAllGameObjects()
+          )
      {
-          GameObject& gameObject = *gameObjectPtr;
+          if (!gameObjectPtr)
+               continue;
 
-          if (ImGui::Selectable(gameObject.name.c_str()))
+
+          GameObject& gameObject =
+               *gameObjectPtr;
+
+
+          if (
+               ImGui::Selectable(
+                    gameObject.name.c_str()
+               )
+               )
           {
-               // 用户点击了 GameObject
-
-               OnGameObjectClicked.Invoke(&gameObject);
+               OnGameObjectClicked.Invoke(
+                    &gameObject
+               );
           }
      }
+
 
      ImGui::End();
 }

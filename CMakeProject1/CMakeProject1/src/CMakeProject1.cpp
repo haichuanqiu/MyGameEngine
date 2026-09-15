@@ -65,6 +65,55 @@ int main()
                }
           }
      );
+     mylayout.m_HierarchyView.OnSaveClicked.Subscribe(
+          [&]()
+          {
+               if (!scene)
+               {
+                    std::cout
+                         << "[Scene Save] No scene to save."
+                         << std::endl;
+
+                    return;
+               }
+
+
+               const std::string savePath =
+                    "../../../../CMakeProject1/assets/SceneData";
+
+
+               // -----------------------------------------------
+               // Serialize
+               // -----------------------------------------------
+
+               auto serialized =
+                    SceneSerializer::Serialize(
+                         *scene
+                    );
+
+
+               // -----------------------------------------------
+               // Save
+               // -----------------------------------------------
+
+               SceneSerializer::SaveSceneTo(
+                    *scene,
+                    savePath
+               );
+
+
+               std::cout
+                    << "[Scene Save] Scene saved to: "
+                    << savePath
+                    << std::endl;
+
+
+               std::cout
+                    << serialized
+                    << std::endl;
+          }
+     );
+
     //testScene::OnSceneCreated(editor, *editor.m_Engine, mylayout);
      testLoadScene::OnSceneCreated(*editor.m_Engine);
      double targetFrameTime = 1.0 / 60.0;

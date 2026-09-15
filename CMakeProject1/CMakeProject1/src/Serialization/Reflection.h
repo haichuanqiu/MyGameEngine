@@ -19,6 +19,8 @@
 
 struct TypeInfo;
 
+class EngineObject;
+
 
 // ============================================================
 // Remove CV / Reference
@@ -45,23 +47,6 @@ enum class FieldType
      Struct,
      Vector,
 
-     // ========================================================
-     // Runtime Object Reference
-     //
-     // 例如：
-     //
-     // Material*
-     // GameObject*
-     // Component*
-     //
-     // Serializer 不保存对象本体，
-     // 只保存：
-     //
-     // ScopeLevel
-     // ScopeID
-     // ObjectID
-     // ========================================================
-
      Reference,
 
      Unknown
@@ -69,11 +54,7 @@ enum class FieldType
 
 
 // ============================================================
-// Serialized Reference
-//
-// Reflection / Serializer 使用的纯数据形式。
-//
-// 它不是 Runtime Pointer。
+// SerializedReference
 // ============================================================
 
 struct SerializedReference
@@ -296,13 +277,7 @@ struct PropertyNode
 
 
      // ========================================================
-     // Reference
-     //
-     // 只有：
-     //
-     // type == FieldType::Reference
-     //
-     // 时使用。
+     // Reference Data
      // ========================================================
 
      SerializedReference reference;
@@ -311,15 +286,9 @@ struct PropertyNode
      // ========================================================
      // Reference Runtime Type
      //
-     // 例如：
+     // Material*:
      //
-     // Material*
-     //
-     // 保存：
-     //
-     // typeid(Material)
-     //
-     // 以后外部 Loader / Resolver 可以使用。
+     // referenceType = typeid(Material)
      // ========================================================
 
      const std::type_info*
@@ -328,13 +297,39 @@ struct PropertyNode
 
 
      // ========================================================
+     // Can Set Reference
+     //
+     // Inspector 可以拿任意 EngineObject* 来测试：
+     //
+     // if (node.canSetReference(object))
+     //
+     // Material* field:
+     //
+     // Material      -> true
+     // Asset         -> false
+     // Renderer      -> false
+     //
+     // Asset* field:
+     //
+     // Material      -> true
+     // Texture       -> true
+     // Renderer      -> false
+     // ========================================================
+
+     std::function<
+          bool(EngineObject*)
+     > canSetReference;
+
+
+     // ========================================================
      // Set Reference
      //
-     // 外部 Loader Resolve 完之后调用：
+     // 真正赋值。
      //
-     // node.setReference(materialPointer);
+     // 这里假设调用前已经经过：
      //
-     // Reflection 本身不负责查找对象。
+     // canSetReference()
+     //
      // ========================================================
 
      std::function<
@@ -379,7 +374,7 @@ struct FieldInfo
 
 
      // ========================================================
-     // Build Property Node
+     // Build
      // ========================================================
 
      std::function<
@@ -462,6 +457,7 @@ struct TypeInfo
                }
           }
 
+
           return nullptr;
      }
 
@@ -486,6 +482,7 @@ struct TypeInfo
                     return &field;
                }
           }
+
 
           return nullptr;
      }
@@ -734,10 +731,6 @@ const TypeInfo* FindRuntimeType(
           RemoveCVRef<T>;
 
 
-     // ========================================================
-     // Polymorphic
-     // ========================================================
-
      if constexpr (
           std::is_polymorphic_v<U>
           )
@@ -748,12 +741,6 @@ const TypeInfo* FindRuntimeType(
                     typeid(value)
                );
      }
-
-
-     // ========================================================
-     // Non-polymorphic
-     // ========================================================
-
      else
      {
           return
@@ -782,10 +769,6 @@ PropertyNode BuildPrimitiveNode(
      node.type =
           GetFieldType<T>();
 
-
-     // ========================================================
-     // Type Name
-     // ========================================================
 
      if constexpr (
           std::is_same_v<T, int>
@@ -820,17 +803,9 @@ PropertyNode BuildPrimitiveNode(
      }
 
 
-     // ========================================================
-     // Value
-     // ========================================================
-
      node.value =
           value;
 
-
-     // ========================================================
-     // Set
-     // ========================================================
 
      node.set =
           [&value](
@@ -848,9 +823,7 @@ PropertyNode BuildPrimitiveNode(
 
 
 // ============================================================
-// BuildPropertyNode
-//
-// Forward Declarations
+// BuildPropertyNode Forward Declarations
 // ============================================================
 
 template<typename T>
@@ -893,18 +866,14 @@ PropertyNode BuildPropertyNode(
      {
           PropertyNode node;
 
-
           node.name =
                name;
-
 
           node.type =
                FieldType::Struct;
 
-
           node.typeName =
                "null";
-
 
           return node;
      }
@@ -919,11 +888,6 @@ PropertyNode BuildPropertyNode(
 
 // ============================================================
 // shared_ptr
-//
-// 注意：
-//
-// 普通 FIELD(shared_ptr) 仍然会展开对象本体。
-// 如果它是持久化 Reference，应该使用 REF_FIELD。
 // ============================================================
 
 template<typename T>
@@ -935,18 +899,14 @@ PropertyNode BuildPropertyNode(
      {
           PropertyNode node;
 
-
           node.name =
                name;
-
 
           node.type =
                FieldType::Struct;
 
-
           node.typeName =
                "null";
-
 
           return node;
      }
@@ -1013,8 +973,6 @@ PropertyNode BuildPropertyNode(
 
 // ============================================================
 // BuildTypeFields
-//
-// Base -> Derived
 // ============================================================
 
 inline void BuildTypeFields(
@@ -1060,7 +1018,7 @@ inline void BuildTypeFields(
 
 
      // ========================================================
-     // Current Type
+     // Current
      // ========================================================
 
      for (
@@ -1083,8 +1041,6 @@ inline void BuildTypeFields(
 
 // ============================================================
 // BuildPropertyNode
-//
-// Normal Struct / Polymorphic Object
 // ============================================================
 
 template<typename T>
@@ -1115,7 +1071,7 @@ PropertyNode BuildPropertyNode(
 
 
      // ========================================================
-     // Struct / Polymorphic
+     // Struct
      // ========================================================
 
      else
@@ -1131,43 +1087,26 @@ PropertyNode BuildPropertyNode(
                FieldType::Struct;
 
 
-          // ====================================================
-          // Runtime Type
-          // ====================================================
-
           const TypeInfo* type =
                FindRuntimeType(
                     value
                );
 
 
-          // ====================================================
-          // No Reflection
-          // ====================================================
-
           if (!type)
           {
                node.typeName =
                     typeid(value).name();
 
-
                return node;
           }
 
-
-          // ====================================================
-          // Type Name
-          // ====================================================
 
           node.typeName =
                type->name
                ? type->name
                : "unknown";
 
-
-          // ====================================================
-          // Build Base + Derived
-          // ====================================================
 
           BuildTypeFields(
                node,
@@ -1185,8 +1124,6 @@ PropertyNode BuildPropertyNode(
 
 // ============================================================
 // MakeField
-//
-// 普通 Value Field
 // ============================================================
 
 template<typename Class, typename T>
@@ -1292,17 +1229,16 @@ FieldInfo MakeField(
 // ============================================================
 // MakeReferenceField
 //
-// 只支持：
+// 核心：
 //
-// T*
+// T* field
 //
-// 其中 T 必须拥有：
+// 自动生成：
 //
-// ReferenceInfo.ScopeLevel
-// ReferenceInfo.ScopeID
-// ReferenceInfo.ObjectID
-//
-// 一般也就是 EngineObject 派生对象。
+// reference
+// referenceType
+// canSetReference
+// setReference
 // ============================================================
 
 template<typename Class, typename T>
@@ -1320,10 +1256,6 @@ FieldInfo MakeReferenceField(
      field.type =
           FieldType::Reference;
 
-
-     // ========================================================
-     // Build
-     // ========================================================
 
      field.build =
           [member, name](
@@ -1359,7 +1291,7 @@ FieldInfo MakeReferenceField(
 
 
                // =================================================
-               // Null
+               // Current Reference
                // =================================================
 
                if (!target)
@@ -1367,12 +1299,6 @@ FieldInfo MakeReferenceField(
                     node.reference.isNull =
                          true;
                }
-
-
-               // =================================================
-               // ReferenceInfo
-               // =================================================
-
                else
                {
                     node.reference.isNull =
@@ -1399,12 +1325,52 @@ FieldInfo MakeReferenceField(
 
 
                // =================================================
-               // Runtime Assignment Hook
+               // Can Set Reference
                //
-               // JsonSerializer 不会调用。
+               // 不修改任何东西。
                //
-               // 以后你的 Loader / ReferenceResolver
-               // 可以使用。
+               // 只测试：
+               //
+               // EngineObject*
+               //      ↓
+               // dynamic_cast<T*>
+               //
+               // 成功：
+               // true
+               //
+               // 失败：
+               // false
+               // =================================================
+
+               node.canSetReference =
+                    [](
+                         EngineObject* candidate)
+                    -> bool
+                    {
+                         // null 永远允许
+                         if (!candidate)
+                              return true;
+
+
+                         T* casted =
+                              dynamic_cast<T*>(
+                                   candidate
+                                   );
+
+
+                         return
+                              casted != nullptr;
+                    };
+
+
+               // =================================================
+               // Set Reference
+               //
+               // 理论上应该先通过：
+               //
+               // canSetReference()
+               //
+               // 再调用这个。
                // =================================================
 
                node.setReference =
@@ -1527,8 +1493,6 @@ inline ReflectionAutoRegister<ClassName>                    \
 
 // ============================================================
 // FIELD
-//
-// 普通值
 // ============================================================
 
 #define FIELD(ClassName, field)                             \
@@ -1540,16 +1504,6 @@ inline ReflectionAutoRegister<ClassName>                    \
 
 // ============================================================
 // REF_FIELD
-//
-// Runtime Object Reference
-//
-// 例如：
-//
-// REF_FIELD(Renderer, material)
-//
-// material:
-//
-// Material*
 // ============================================================
 
 #define REF_FIELD(ClassName, field)                         \

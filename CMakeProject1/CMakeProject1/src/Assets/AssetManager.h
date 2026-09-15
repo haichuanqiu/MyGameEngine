@@ -35,6 +35,30 @@ REFLECT_BASE(
      class AssetManager
 {
 public:
+     template<typename T>
+     std::vector<T*> FindAllOfType()
+     {
+          std::vector<T*> result;
+
+          for (auto& asset : m_Assets)
+          {
+               if (!asset)
+                    continue;
+
+               T* typedAsset =
+                    dynamic_cast<T*>(asset.get());
+
+               if (typedAsset)
+               {
+                    result.push_back(
+                         typedAsset
+                    );
+               }
+          }
+
+          return result;
+     }
+
      static int LoadContent(
           const std::string& content)
      {

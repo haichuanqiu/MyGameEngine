@@ -2,6 +2,7 @@
 
 #include <any>
 #include <cstdio>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>
@@ -14,28 +15,14 @@
 #include "Serialization/Reflection.h"
 #include "EngineObject.h"
 
+#include "Assets/AssetManager.h"
+#include "Assets/ReferenceResolver.h"
+
+#include "Engine/GameObjectSystem.h"
+
 
 // ============================================================
-// 自定义 Inspector 工厂
-//
-// 支持：
-//
-// 1. 精确类型 Override
-//
-//    Register<Material>()
-//    Material 对象优先使用 Material Inspector
-//
-// 2. 自动继承匹配
-//
-//    Register<Asset>()
-//
-//    Material : Asset
-//    Texture  : Asset
-//
-//    即使没有 Register<Material>()，
-//    也会通过 dynamic_cast 自动匹配到 Asset Inspector
-//
-// 不需要手动 RegisterInheritance。
+// Custom Inspector Factory
 // ============================================================
 
 class CustomInspectorFactory
@@ -44,16 +31,11 @@ private:
 
      struct InspectorEntry
      {
-          // 注册的 Inspector 类型
           std::type_index type;
 
-
-          // 当前 EngineObject 是否可以转换成该类型
           std::function<bool(EngineObject*)>
                canDraw;
 
-
-          // 实际绘制
           std::function<void(EngineObject*)>
                draw;
      };
@@ -85,26 +67,9 @@ public:
 
           InspectorEntry newEntry
           {
-               // ================================================
-               // 注册类型
-               // ================================================
-
-               std::type_index(typeid(T)),
-
-
-               // ================================================
-               // 自动判断继承关系
-               //
-               // 例如：
-               //
-               // EngineObject* object -> Material
-               //
-               // dynamic_cast<Asset*>(object)
-               //
-               // Material : Asset
-               //
-               // 所以成功。
-               // ================================================
+               std::type_index(
+                    typeid(T)
+               ),
 
                [](EngineObject* object) -> bool
                {
@@ -117,26 +82,18 @@ public:
                          ) != nullptr;
                },
 
-
-               // ================================================
-               // 绘制
-               // ================================================
-
                [drawFn](EngineObject* object)
                {
                     if (!object)
                          return;
-
 
                     T* castedObject =
                          dynamic_cast<T*>(
                               object
                          );
 
-
                     if (!castedObject)
                          return;
-
 
                     drawFn(
                          *castedObject
@@ -146,20 +103,22 @@ public:
 
 
           // ======================================================
-          // 如果这个类型已经注册过
-          // 直接覆盖旧 Inspector
+          // Override Existing
           // ======================================================
 
-          for (auto& entry :
-               m_entries)
+          for (auto& entry : m_entries)
           {
                if (
                     entry.type ==
-                    std::type_index(typeid(T))
+                    std::type_index(
+                         typeid(T)
+                    )
                     )
                {
                     entry =
-                         std::move(newEntry);
+                         std::move(
+                              newEntry
+                         );
 
                     return;
                }
@@ -167,17 +126,19 @@ public:
 
 
           // ======================================================
-          // 新注册
+          // New
           // ======================================================
 
           m_entries.push_back(
-               std::move(newEntry)
+               std::move(
+                    newEntry
+               )
           );
      }
 
 
      // ============================================================
-     // CreateAndDraw
+     // Create And Draw
      // ============================================================
 
      bool CreateAndDraw(
@@ -187,31 +148,16 @@ public:
                return false;
 
 
-          // ======================================================
-          // 获取真正的运行时类型
-          // ======================================================
-
           const std::type_index runtimeType(
                typeid(*object)
           );
 
 
           // ======================================================
-          // 第一阶段：
-          //
-          // 精确类型匹配
-          //
-          // 比如：
-          //
-          // Material
-          //
-          // Register<Material>()
-          //
-          // 那么一定优先使用 Material Inspector。
+          // Exact Match
           // ======================================================
 
-          for (auto& entry :
-               m_entries)
+          for (auto& entry : m_entries)
           {
                if (
                     entry.type ==
@@ -228,27 +174,10 @@ public:
 
 
           // ======================================================
-          // 第二阶段：
-          //
-          // 自动继承匹配
-          //
-          // 比如：
-          //
-          // Material : Asset
-          //
-          // 没有 Register<Material>()
-          //
-          // 但是有：
-          //
-          // Register<Asset>()
-          //
-          // dynamic_cast<Asset*>(Material)
-          //
-          // 会成功。
+          // Inheritance Match
           // ======================================================
 
-          for (auto& entry :
-               m_entries)
+          for (auto& entry : m_entries)
           {
                if (
                     entry.canDraw(
@@ -265,10 +194,6 @@ public:
           }
 
 
-          // ======================================================
-          // 没有任何 Custom Inspector
-          // ======================================================
-
           return false;
      }
 
@@ -282,12 +207,495 @@ private:
 
 
 // ============================================================
-// 默认反射绘制
+// Object Display Name
+//
+// 用于 Reference 当前值和 Popup Candidate。
+// ============================================================
+
+inline std::string GetObjectDisplayName(
+     EngineObject* object)
+{
+     // ============================================================
+     // Null
+     // ============================================================
+
+     if (!object)
+          return "null";
+
+
+     // ============================================================
+     // Asset
+     // ============================================================
+
+     if (
+          auto* asset =
+          dynamic_cast<Asset*>(
+               object
+               )
+          )
+     {
+          if (
+               asset->filePath.empty()
+               )
+          {
+               return "Unnamed Asset";
+          }
+
+
+          return
+               std::filesystem::path(
+                    asset->filePath
+               )
+               .filename()
+               .string();
+     }
+
+
+     // ============================================================
+     // GameObject
+     // ============================================================
+
+     if (
+          auto* gameObject =
+          dynamic_cast<GameObject*>(
+               object
+               )
+          )
+     {
+          if (
+               gameObject->name.empty()
+               )
+          {
+               return "Unnamed GameObject";
+          }
+
+
+          return
+               gameObject->name;
+     }
+
+
+     // ============================================================
+     // Component
+     // ============================================================
+
+     if (
+          auto* component =
+          dynamic_cast<Component*>(
+               object
+               )
+          )
+     {
+          if (
+               !component->gameObject
+               )
+          {
+               return "Orphan Component";
+          }
+
+
+          if (
+               component
+               ->gameObject
+               ->name
+               .empty()
+               )
+          {
+               return "Unnamed GameObject";
+          }
+
+
+          return
+               component
+               ->gameObject
+               ->name;
+     }
+
+
+     // ============================================================
+     // Unknown EngineObject
+     // ============================================================
+
+     return "Unknown Object";
+}
+
+
+// ============================================================
+// Resolve Current Reference
+// ============================================================
+
+inline EngineObject* GetReferenceObject(
+     const PropertyNode& node)
+{
+     if (
+          node.reference.isNull
+          )
+     {
+          return nullptr;
+     }
+
+
+     ReferenceDescription ref;
+
+
+     ref.ScopeLevel =
+          node.reference.ScopeLevel;
+
+
+     ref.ScopeID =
+          node.reference.ScopeID;
+
+
+     ref.ObjectID =
+          node.reference.ObjectID;
+
+
+     return
+          ReferenceResolver::Instance()
+          .GetItem(
+               ref
+          );
+}
+
+
+// ============================================================
+// Reference Display Name
+// ============================================================
+
+inline std::string GetReferenceDisplayName(
+     const PropertyNode& node)
+{
+     if (
+          node.reference.isNull
+          )
+     {
+          return "null";
+     }
+
+
+     EngineObject* object =
+          GetReferenceObject(
+               node
+          );
+
+
+     // Reference ID 存在，但 Resolve 失败。
+     if (!object)
+          return "Missing Reference";
+
+
+     return
+          GetObjectDisplayName(
+               object
+          );
+}
+
+
+// ============================================================
+// Draw Reference Selector
+// ============================================================
+
+inline void DrawReferenceSelector(
+     const PropertyNode& node,
+     EngineObject* owner)
+{
+     if (!owner)
+          return;
+
+
+     // ============================================================
+     // Current Display Name
+     // ============================================================
+
+     std::string displayName =
+          GetReferenceDisplayName(
+               node
+          );
+
+
+     // ============================================================
+     // Field Name
+     // ============================================================
+
+     ImGui::Text(
+          "%s",
+          node.name.c_str()
+     );
+
+
+     ImGui::SameLine();
+
+
+     // ============================================================
+     // Current Reference Button
+     // ============================================================
+
+     if (
+          ImGui::Button(
+               displayName.c_str()
+          )
+          )
+     {
+          ImGui::OpenPopup(
+               "ReferenceSelectorPopup"
+          );
+     }
+
+
+     // ============================================================
+     // Popup
+     // ============================================================
+
+     if (
+          ImGui::BeginPopup(
+               "ReferenceSelectorPopup"
+          )
+          )
+     {
+          // ======================================================
+          // Null
+          // ======================================================
+
+          if (
+               ImGui::Selectable(
+                    "null"
+               )
+               )
+          {
+               if (
+                    node.setReference
+                    )
+               {
+                    node.setReference(
+                         nullptr
+                    );
+               }
+
+
+               ImGui::CloseCurrentPopup();
+          }
+
+
+          ImGui::Separator();
+
+
+          // ======================================================
+          // Find All Scope-Compatible EngineObjects
+          //
+          // owner:
+          //
+          // 当前拥有这个 Field 的对象。
+          //
+          // 例如：
+          //
+          // ReferenceTest 位于 Scene 0
+          //
+          // 那么 owner.ReferenceInfo 就是：
+          //
+          // ScopeLevel = 0
+          // ScopeID    = 0
+          //
+          // ReferenceResolver 会先根据 Suitable()
+          // 找到所有合法来源。
+          //
+          // Scene 0:
+          //      Scene 0 objects
+          //      Assets
+          //
+          // Asset:
+          //      Assets
+          // ======================================================
+
+          std::vector<EngineObject*> candidates =
+               ReferenceResolver::Instance()
+               .FindAllOfType<EngineObject>(
+                    owner->ReferenceInfo
+               );
+
+
+          bool foundCandidate =
+               false;
+
+
+          // ======================================================
+          // Filter By REF_FIELD Runtime Type
+          // ======================================================
+
+          for (
+               EngineObject* candidate :
+               candidates
+               )
+          {
+               if (!candidate)
+                    continue;
+
+
+               // =================================================
+               // Reflection 自动生成的类型检查
+               //
+               // Material* field:
+               //
+               // Material -> true
+               // Renderer -> false
+               //
+               // Component* field:
+               //
+               // Renderer   -> true
+               // Transform  -> true
+               // PointLight -> true
+               // =================================================
+
+               if (
+                    !node.canSetReference
+                    )
+               {
+                    continue;
+               }
+
+
+               if (
+                    !node.canSetReference(
+                         candidate
+                    )
+                    )
+               {
+                    continue;
+               }
+
+
+               foundCandidate =
+                    true;
+
+
+               // =================================================
+               // Display Name
+               // =================================================
+
+               std::string candidateName =
+                    GetObjectDisplayName(
+                         candidate
+                    );
+
+
+               // =================================================
+               // 同名对象避免 ImGui ID 冲突
+               //
+               // 显示：
+               //
+               // Cube
+               //
+               // ImGui Internal ID:
+               //
+               // Cube##ReferenceCandidate_5
+               // =================================================
+
+               std::string selectableName =
+                    candidateName +
+                    "##ReferenceCandidate_" +
+                    std::to_string(
+                         candidate
+                         ->ReferenceInfo
+                         .ScopeLevel
+                    ) +
+                    "_" +
+                    std::to_string(
+                         candidate
+                         ->ReferenceInfo
+                         .ScopeID
+                    ) +
+                    "_" +
+                    std::to_string(
+                         candidate
+                         ->ReferenceInfo
+                         .ObjectID
+                    );
+
+
+               // =================================================
+               // Is Current
+               // =================================================
+
+               bool selected =
+                    !node.reference.isNull &&
+                    node.reference.ScopeLevel ==
+                    candidate
+                    ->ReferenceInfo
+                    .ScopeLevel &&
+                    node.reference.ScopeID ==
+                    candidate
+                    ->ReferenceInfo
+                    .ScopeID &&
+                    node.reference.ObjectID ==
+                    candidate
+                    ->ReferenceInfo
+                    .ObjectID;
+
+
+               // =================================================
+               // Select
+               // =================================================
+
+               if (
+                    ImGui::Selectable(
+                         selectableName.c_str(),
+                         selected
+                    )
+                    )
+               {
+                    // =============================================
+                    // 再检查一次。
+                    //
+                    // 理论上前面已经检查过，
+                    // 这里属于安全保护。
+                    // =============================================
+
+                    if (
+                         node.canSetReference(
+                              candidate
+                         ) &&
+                         node.setReference
+                         )
+                    {
+                         node.setReference(
+                              candidate
+                         );
+                    }
+
+
+                    ImGui::CloseCurrentPopup();
+               }
+          }
+
+
+          // ======================================================
+          // No Candidate
+          // ======================================================
+
+          if (!foundCandidate)
+          {
+               ImGui::TextDisabled(
+                    "No compatible objects"
+               );
+          }
+
+
+          ImGui::EndPopup();
+     }
+}
+
+
+// ============================================================
+// Default Reflection Draw
+//
+// 多了一个 owner 参数。
+//
+// owner 用来决定 Reference Field 当前处于什么 Scope。
 // ============================================================
 
 inline void DrawPropertyNode(
      const PropertyNode& node,
-     int indent)
+     int indent,
+     EngineObject* owner)
 {
      ImGui::PushID(
           node.name.c_str()
@@ -299,8 +707,14 @@ inline void DrawPropertyNode(
      );
 
 
-     switch (node.type)
+     switch (
+          node.type
+          )
      {
+          // ============================================================
+          // Int
+          // ============================================================
+
      case FieldType::Int:
      {
           int value =
@@ -321,69 +735,14 @@ inline void DrawPropertyNode(
                );
           }
 
-          break;
-     }
-     case FieldType::Reference:
-     {
-          // ========================================================
-          // Null Reference
-          // ========================================================
-
-          if (node.reference.isNull)
-          {
-               ImGui::Text(
-                    "%s : Reference [null]",
-                    node.name.c_str()
-               );
-
-               break;
-          }
-
-
-          // ========================================================
-          // Reference Header
-          // ========================================================
-
-          ImGui::Text(
-               "%s : Reference",
-               node.name.c_str()
-          );
-
-
-          // ========================================================
-          // Reference Information
-          // ========================================================
-
-          ImGui::Indent(
-               16.0f
-          );
-
-
-          ImGui::Text(
-               "Scope Index: %d",
-               node.reference.ScopeLevel
-          );
-
-
-          ImGui::Text(
-               "Scope ID: %d",
-               node.reference.ScopeID
-          );
-
-
-          ImGui::Text(
-               "Object ID: %d",
-               node.reference.ObjectID
-          );
-
-
-          ImGui::Unindent(
-               16.0f
-          );
-
 
           break;
      }
+
+
+     // ============================================================
+     // Float
+     // ============================================================
 
      case FieldType::Float:
      {
@@ -406,9 +765,14 @@ inline void DrawPropertyNode(
                );
           }
 
+
           break;
      }
 
+
+     // ============================================================
+     // Bool
+     // ============================================================
 
      case FieldType::Bool:
      {
@@ -430,9 +794,14 @@ inline void DrawPropertyNode(
                );
           }
 
+
           break;
      }
 
+
+     // ============================================================
+     // String
+     // ============================================================
 
      case FieldType::String:
      {
@@ -468,9 +837,30 @@ inline void DrawPropertyNode(
                );
           }
 
+
           break;
      }
 
+
+     // ============================================================
+     // Reference
+     // ============================================================
+
+     case FieldType::Reference:
+     {
+          DrawReferenceSelector(
+               node,
+               owner
+          );
+
+
+          break;
+     }
+
+
+     // ============================================================
+     // Struct / Vector
+     // ============================================================
 
      case FieldType::Struct:
      case FieldType::Vector:
@@ -489,9 +879,11 @@ inline void DrawPropertyNode(
           {
                DrawPropertyNode(
                     child,
-                    indent + 1
+                    indent + 1,
+                    owner
                );
           }
+
 
           break;
      }
@@ -512,26 +904,7 @@ inline void DrawPropertyNode(
 
 
 // ============================================================
-// 默认 Inspector
-//
-// 这个函数会跳过 CustomInspectorFactory，
-// 直接走 Reflection。
-//
-// 很适合这种情况：
-//
-// Register<Asset>(
-//      [](Asset& asset)
-//      {
-//           DrawDefaultInspector(
-//                "Asset",
-//                &asset
-//           );
-//
-//           ImGui::Button("Save");
-//      }
-// );
-//
-// 这样不会递归调用 Asset Custom Inspector。
+// Default Inspector
 // ============================================================
 
 inline void DrawDefaultInspector(
@@ -542,21 +915,17 @@ inline void DrawDefaultInspector(
           return;
 
 
-     // ======================================================
-     // 获取对象真实运行时类型
-     //
-     // 即使传进来的是 Asset*
-     //
-     // 真实对象如果是 Material，
-     // typeid(*object) 仍然是 Material。
-     // ======================================================
+     // ============================================================
+     // Runtime Type
+     // ============================================================
 
      const std::type_info& typeInfo =
           typeid(*object);
 
 
      const TypeInfo* type =
-          ReflectionRegistry::Instance().Find(
+          ReflectionRegistry::Instance()
+          .Find(
                typeInfo
           );
 
@@ -568,13 +937,14 @@ inline void DrawDefaultInspector(
                typeInfo.name()
           );
 
+
           return;
      }
 
 
-     // ======================================================
-     // Inspector 标题
-     // ======================================================
+     // ============================================================
+     // Title
+     // ============================================================
 
      ImGui::Text(
           "%s",
@@ -582,9 +952,9 @@ inline void DrawDefaultInspector(
      );
 
 
-     // ======================================================
-     // 创建 PropertyNode
-     // ======================================================
+     // ============================================================
+     // Property Node
+     // ============================================================
 
      PropertyNode node;
 
@@ -604,16 +974,9 @@ inline void DrawDefaultInspector(
      node.children.clear();
 
 
-     // ======================================================
-     // Reflection 构建字段
-     //
-     // BuildTypeFields 如果你的 Reflection 已经处理继承，
-     // 那么这里会自动得到：
-     //
-     // Asset Fields
-     // +
-     // Material Fields
-     // ======================================================
+     // ============================================================
+     // Build Fields
+     // ============================================================
 
      BuildTypeFields(
           node,
@@ -622,9 +985,9 @@ inline void DrawDefaultInspector(
      );
 
 
-     // ======================================================
-     // 绘制
-     // ======================================================
+     // ============================================================
+     // Draw
+     // ============================================================
 
      for (
           const auto& child :
@@ -633,7 +996,8 @@ inline void DrawDefaultInspector(
      {
           DrawPropertyNode(
                child,
-               0
+               0,
+               object
           );
      }
 }
@@ -698,18 +1062,7 @@ inline void ClassInspector::Draw()
 
 
      // ============================================================
-     // 自定义 Inspector
-     //
-     // Factory 内部会：
-     //
-     // 1. 先找完全匹配
-     //
-     //    Material -> Material Inspector
-     //
-     // 2. 再自动通过 dynamic_cast 找父类 Inspector
-     //
-     //    Material -> Asset Inspector
-     //
+     // Custom Inspector
      // ============================================================
 
      if (
@@ -724,13 +1077,12 @@ inline void ClassInspector::Draw()
 
 
      // ============================================================
-     // 没有 Custom Inspector
-     //
-     // 使用默认 Reflection Inspector
+     // Reflection Type
      // ============================================================
 
      const TypeInfo* type =
-          ReflectionRegistry::Instance().Find(
+          ReflectionRegistry::Instance()
+          .Find(
                *m_typeInfo
           );
 
@@ -742,12 +1094,13 @@ inline void ClassInspector::Draw()
                m_typeInfo->name()
           );
 
+
           return;
      }
 
 
      // ============================================================
-     // Inspector 标题
+     // Title
      // ============================================================
 
      ImGui::Text(
@@ -757,7 +1110,7 @@ inline void ClassInspector::Draw()
 
 
      // ============================================================
-     // PropertyNode
+     // Property Node
      // ============================================================
 
      m_Node.name =
@@ -776,15 +1129,7 @@ inline void ClassInspector::Draw()
 
 
      // ============================================================
-     // 生成所有 Reflection Fields
-     //
-     // 如果 Reflection 支持继承：
-     //
-     // Base
-     //   ↓
-     // Derived
-     //
-     // 会自动全部生成。
+     // Build Fields
      // ============================================================
 
      BuildTypeFields(
@@ -795,7 +1140,7 @@ inline void ClassInspector::Draw()
 
 
      // ============================================================
-     // 绘制
+     // Draw
      // ============================================================
 
      for (
@@ -805,7 +1150,8 @@ inline void ClassInspector::Draw()
      {
           DrawPropertyNode(
                child,
-               0
+               0,
+               m_object
           );
      }
 }

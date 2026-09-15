@@ -196,6 +196,29 @@ public:
           return objectID;
      }
 
+     template<typename T>
+     std::vector<T*> FindAllOfType()
+     {
+          std::vector<T*> result;
+
+          for (auto& [objectID, object] : m_Objects)
+          {
+               if (!object)
+                    continue;
+
+               T* typedObject =
+                    dynamic_cast<T*>(object);
+
+               if (typedObject)
+               {
+                    result.push_back(
+                         typedObject
+                    );
+               }
+          }
+
+          return result;
+     }
 
 private:
 
