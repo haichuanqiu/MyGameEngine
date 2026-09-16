@@ -11,6 +11,12 @@ public:
 	float testFloat = -1;
 	bool testBool=false;
 	std::string testString="";
+	void Update() {
+		std::cout << "StartCreate gameobjects" << std::endl;
+		auto s=ts->GetPosition();
+		Vector3 vec(s.x + 1, s.y, s.z);
+		ts->SetPosition(vec);
+	}
 
 private:
 };

@@ -65,7 +65,9 @@ public:
 
      GameObject& GetGameObject(size_t index)
      {
+
           return *m_GameObjects.at(index);
+
      }
 
 

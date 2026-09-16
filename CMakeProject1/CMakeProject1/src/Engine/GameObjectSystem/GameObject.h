@@ -29,6 +29,8 @@ public:
      virtual void OnAdded(GameObject* owner) {}
 
      virtual void OnRemoved(GameObject* owner) {}
+
+     virtual void Update(){}
 };
 REFLECT_BASE(
      Component,

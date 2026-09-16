@@ -48,8 +48,13 @@ public:
 
      OpenGLVertexDataController vertexDataController;
      RenderSystem renderSystem;
-
-
+     void Update() {
+          auto components = currentScene.FindAllOfType<Component>();
+          for (auto component : components)
+          {
+               component->Update();
+          }
+     }
 private:
 
      Engine()

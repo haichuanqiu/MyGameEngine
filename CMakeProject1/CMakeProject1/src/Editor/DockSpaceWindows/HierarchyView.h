@@ -22,7 +22,7 @@ public:
 
      Event<GameObject*> OnGameObjectClicked;
 
-     Event<> OnSaveClicked;
+     Event<Scene*> OnSaveClicked;
 
 
 private:

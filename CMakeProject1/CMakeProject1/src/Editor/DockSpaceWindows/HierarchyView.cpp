@@ -15,7 +15,7 @@ void HierarchyView::Draw()
 
      if (ImGui::Button("Save"))
      {
-          OnSaveClicked.Invoke();
+          OnSaveClicked.Invoke(m_TargetScene);
      }
 
 

@@ -81,9 +81,8 @@ namespace testScene {
 		return squareMesh;
 	}
 	void OnSceneCreated(
-		EditorApplication& editor,
-		Engine& engine,
-		WindowLayoutController& layout
+		
+		Engine& engine
 	)
 	{
 		std::cout << "StartCreate gameobjects" << std::endl;
@@ -184,17 +183,6 @@ namespace testScene {
 			renderer
 		);
 
-		// 根据 RuntimeID 查找 Material
-
-		Asset* asset = 
-			AssetManager::Instance()
-			.Find<Material>(
-				materialID
-			);
-		if (asset)
-		{
-			layout.m_InspectorView.SetTarget(asset);
-		}
 		ReferenceTest* Test = cube.AddComponent<ReferenceTest>();
 
 		Test->material = AssetManager::Instance().Find<Material>(materialID);
