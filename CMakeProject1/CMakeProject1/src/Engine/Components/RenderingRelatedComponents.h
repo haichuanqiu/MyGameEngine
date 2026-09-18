@@ -1,5 +1,4 @@
 #pragma once
-
 #include "Engine/GameObjectSystem.h"
 #include "Engine/DataStructure.h"
 #include "rendering/Shader.h"
@@ -9,9 +8,12 @@ class RenderSystem;
 class Renderer : public Component
 {  
 public:
+	void OnCreatedBySceneLoader() {
+		material->setShader();
+		
+	 }
 	Material* material;
 	int renderSystemIndex = -1;
-	
 private:
 };
 REFLECT_BASE(
@@ -31,22 +33,24 @@ public:
 	float Range = 10.0f;
 
 	int id = -1;
-
-	void SetDefaultTarget(RenderSystem* target) {
-		m_target= target;
-	}
+	int CallBackID=-1;
+	void OnCreatedBySceneLoader() ;
 	void UpdateLightData();
 	void UpdateLightData(RenderSystem& target);
+	void SetDefaultTarget(RenderSystem* target) {
+		m_target = target;
+	}
 	void OnAdded(GameObject* owner) override;
-
 	void OnTransformChanged(const Transform& transform)
 	{
 		if(m_target){
 		UpdateLightData(*m_target);
 		}
 	}
+	
 
 private:
+	int m_TransformSubscription;
 	RenderSystem* m_target=nullptr;
 	GameObject* m_owner = nullptr; 
 };

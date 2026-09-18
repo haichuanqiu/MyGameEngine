@@ -1,5 +1,6 @@
 #pragma once
 #include "Editor/DockSpaceWindows/WindowLayoutController.h"
+#include "Profiler/profiler.h"
 class EditorApplication
 {
 public:
@@ -10,21 +11,46 @@ public:
           int framebufferId = mylayout.m_SceneView.GetFramebuffer();
           m_Engine =&Engine::Instance();
           RegisterEditorCamera(framebufferId);
-
+          EngineRunning=false;
 
          
           RegisterUIEvent();
      }
 
-     void EditorUpdate() {
-          MiniEngineWindow.PollEvents();
-          mylayout.Draw();
-           UpdateSceneView();
-          MiniEngineWindow.SwapBuffers();
-          if (EngineRunning) {
+     void EditorUpdate()
+     {
+          ProfilerManager::Instance().NewFrame();
+          ENGINE_PROFILE_SCOPE("Editor Frame");
+          {
+               ENGINE_PROFILE_SCOPE("Poll Events");
+
+               MiniEngineWindow.PollEvents();
+          }
+          if (EngineRunning)
+          {
+               ENGINE_PROFILE_SCOPE("Engine Update");
+
                m_Engine->Update();
           }
+          {
+               ENGINE_PROFILE_SCOPE("Scene View Render");
+
+               UpdateSceneView();
+          }
+
+          {
+               ENGINE_PROFILE_SCOPE("Editor UI");
+
+               mylayout.Draw();
+          }
+          {
+               ENGINE_PROFILE_SCOPE("Swap Buffers");
+
+               MiniEngineWindow.SwapBuffers();
+          }
      }
+
+
      void UpdateSceneView()
      {
           m_Engine
@@ -40,7 +66,7 @@ public:
      Engine* m_Engine =
           nullptr;
 
-     bool EngineRunning;
+
      GameObject EditorCamreaGameObject;
 
      GameObject* ChoosenGameObject =
@@ -55,6 +81,7 @@ public:
      int SceenChoosenItemHierarchyIndex =
           -1;
 private:
+     bool EngineRunning;
      void RegisterEditorCamera(int SceneFrameBufferID) {
  
           EditorCamreaGameObject.name =
@@ -77,7 +104,63 @@ private:
                SceneFrameBufferID;
 
      }
+     void RebuidScene() {
+          mylayout.m_InspectorView.ClearTarget();
+          mylayout.m_HierarchyView.ClearTarget();
+          std::cout << "RebuildScene" << std::endl;
+          const std::string scenePath =
+               m_Engine->currentScene.filePath;
+
+          std::ifstream file(
+               scenePath,
+               std::ios::in
+          );
+
+          if (!file.is_open())
+          {
+               std::cerr
+                    << "Failed to open Scene file: "
+                    << scenePath
+                    << std::endl;
+
+               return;
+          }
+
+          std::stringstream buffer;
+
+          buffer << file.rdbuf();
+
+          file.close();
+
+          const std::string sceneData =
+               buffer.str();
+
+          m_Engine->currentScene.ClearScene();
+
+          SceneSerializer::LoadScene(
+               &m_Engine->currentScene,
+               sceneData
+          );
+          mylayout.m_HierarchyView.SetTarget(&m_Engine->currentScene);
+          
+     }
+  
 void RegisterUIEvent(){
+     mylayout.m_ToolBar.OnPlayButtonPressed.Subscribe(
+          [&]() {
+               std::cout << "StartPlaying" << std::endl;
+               EngineRunning = true;
+               mylayout.m_ToolBar.InPlayMode = true;
+          }
+     );
+     mylayout.m_ToolBar.OnStopButtonPressed.Subscribe(
+          [&]() {
+               EngineRunning = false;
+               mylayout.m_ToolBar.InPlayMode = false;
+               RebuidScene();
+          }
+     );
+
      mylayout.m_HierarchyView.SetTarget(&m_Engine->currentScene);
 
      mylayout.m_HierarchyView.OnGameObjectClicked.Subscribe(

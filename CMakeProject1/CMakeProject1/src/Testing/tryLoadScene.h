@@ -174,204 +174,17 @@ namespace testLoadScene
           std::cout
                << "Scene file loaded.\n";
 
-
+          
           // ========================================================
           // 3. Load Scene
           // ========================================================
 
+          engine.currentScene.filePath = scenePath;
           SceneSerializer::LoadScene(
                &engine.currentScene,
                sceneData
           );
-
-
-          // ========================================================
-          // 4. 检查加载结果
-          // ========================================================
-
-          std::cout
-               << "\n====================================\n"
-               << "Loaded Scene\n"
-               << "====================================\n";
-
-          std::cout
-               << "GameObject Count = "
-               << engine.currentScene
-               .GetAllGameObjects()
-               .size()
-               << std::endl;
-
-
-          // ========================================================
-          // 5. 恢复运行时状态
-          // ========================================================
-
-          for (
-               const auto& gameObjectPtr :
-               engine.currentScene.GetAllGameObjects()
-               )
-          {
-               GameObject& gameObject =
-                    *gameObjectPtr;
-
-
-               std::cout
-                    << "\nGameObject: "
-                    << gameObject.name
-                    << std::endl;
-
-
-               const auto& components =
-                    gameObject.GetComponents();
-
-
-               std::cout
-                    << "Component Count = "
-                    << components.size()
-                    << std::endl;
-
-
-               for (
-                    const auto& componentPtr :
-                    components
-                    )
-               {
-                    Component* component =
-                         componentPtr.get();
-
-
-                    const TypeInfo* typeInfo =
-                         ReflectionRegistry::Instance()
-                         .Find(
-                              typeid(*component)
-                         );
-
-
-                    if (!typeInfo)
-                    {
-                         std::cout
-                              << "  Unknown Component"
-                              << std::endl;
-
-                         continue;
-                    }
-
-
-                    std::cout
-                         << "  Component = "
-                         << typeInfo->name
-                         << std::endl;
-
-
-                    std::cout
-                         << "  TypeId = "
-                         << typeInfo->id
-                         << std::endl;
-
-
-                    // =================================================
-                    // Transform
-                    // =================================================
-
-                    if (
-                         auto* transform =
-                         dynamic_cast<Transform*>(
-                              component
-                              )
-                         )
-                    {
-                         std::cout
-                              << "    Transform loaded"
-                              << std::endl;
-                    }
-
-
-                    // =================================================
-                    // Renderer
-                    // =================================================
-
-                    if (
-                         auto* renderer =
-                         dynamic_cast<Renderer*>(
-                              component
-                              )
-                         )
-                    {
-                         std::cout
-                              << "    Renderer loaded"
-                              << std::endl;
-
-                         std::cout
-                              << "    renderSystemIndex = "
-                              << renderer->renderSystemIndex
-                              << std::endl;
-                         renderer->material->setShader();
-
-                         // Scene 中保存的是 Mesh ID。
-                         //
-                         // 这里假设重新注册 Mesh 后，
-                         // cubeMeshID 与保存时一致。
-
-                         if (
-                              renderer->renderSystemIndex
-                              != cubeMeshID
-                              )
-                         {
-                              std::cerr
-                                   << "WARNING: Renderer mesh ID "
-                                   << renderer->renderSystemIndex
-                                   << " != current mesh ID "
-                                   << cubeMeshID
-                                   << std::endl;
-                         }
-                         
-
-                         // 重新注册 Renderer 到运行时 RenderSystem
-
-                         engine.renderSystem.RegisterRenderer( renderer);
-                    }
-
-
-                    // =================================================
-                    // PointLight
-                    // =================================================
-
-                    if (
-                         auto* light =
-                         dynamic_cast<PointLight*>(
-                              component
-                              )
-                         )
-                    {
-                         std::cout
-                              << "    PointLight loaded"
-                              << std::endl;
-
-                         std::cout
-                              << "    Intensity = "
-                              << light->Intensity
-                              << std::endl;
-
-                         std::cout
-                              << "    Range = "
-                              << light->Range
-                              << std::endl;
-
-
-                         // RenderSystem 是运行时对象，
-                         // 不从 Scene 文件恢复。
-
-                         light->SetDefaultTarget(
-                              &engine.renderSystem
-                         );
-
-
-                         light->UpdateLightData(
-                              engine.renderSystem
-                         );
-                    }
-               }
-          }
+          engine.currentScene.filePath= scenePath;
 
 
           // ========================================================
@@ -387,33 +200,6 @@ namespace testLoadScene
           );
 
 
-          // ========================================================
-          // 7. 最终结果
-          // ========================================================
-
-          std::cout
-               << "\n====================================\n"
-               << "Scene Load Finished\n"
-               << "====================================\n";
-
-
-          for (
-               const auto& gameObjectPtr :
-               engine.currentScene.GetAllGameObjects()
-               )
-          {
-               GameObject& gameObject =
-                    *gameObjectPtr;
-
-
-               std::cout
-                    << gameObject.name
-                    << " -> "
-                    << gameObject
-                    .GetComponents()
-                    .size()
-                    << " components"
-                    << std::endl;
-          }
+     
      }
 }

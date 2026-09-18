@@ -109,52 +109,50 @@ public:
                return;
 
 
-          // =====================================================
+          // ============================================================
           // Parse
-          // =====================================================
+          // ============================================================
 
-          std::vector<SerializedGameObject>
-               objects =
+          std::vector<SerializedGameObject> objects =
                Parse(content);
 
 
-          // =====================================================
-          // Dictionary
+          // ============================================================
+          // Component Dictionary
           //
-          // GameObject ID
-          //     ->
-          // GameObject*
+          // 仅供本次 LoadScene 后续阶段使用
           //
-          // Component ObjId
-          //     ->
-          // Component*
-          // =====================================================
+          // Serialized ObjId -> 新创建的 Component*
+          // ============================================================
 
-          std::unordered_map<
-               uint64_t,
-               GameObject*
-          > gameObjects;
+          std::unordered_map<uint64_t, Component*> components;
 
 
-          std::unordered_map<
-               uint64_t,
-               Component*
-          > components;
+          // ============================================================
+          // Scene Scope
+          // ============================================================
+
+          const int scopeLevel = 0;
+          const int scopeID = target->sceneIndex;
 
 
-          // =====================================================
-          // 第一阶段
+          // ============================================================
+          // Phase 1
           //
           // 创建全部 GameObject / Component
+          // 注册 ReferenceInfo
           //
-          // 不设置 Data
-          // =====================================================
+          // 此阶段不 Deserialize
+          // ============================================================
 
           for (auto& serializedObject : objects)
           {
+               // ========================================================
+               // Create GameObject
+               // ========================================================
+
                auto gameObject =
                     std::make_unique<GameObject>();
-
 
                gameObject->name =
                     serializedObject.name;
@@ -164,27 +162,19 @@ public:
                     gameObject.get();
 
 
-               // =================================================
-               // GameObject ID
-               // =================================================
-
-               gameObjects[
-                    serializedObject.id
-               ] = gameObjectPtr;
-
-
-               // =================================================
+               // ========================================================
                // Components
-               // =================================================
+               // ========================================================
 
-               for (
-                    auto& serializedComponent :
-                    serializedObject.components
-                    )
+               for (auto& serializedComponent :
+                    serializedObject.components)
                {
-                    Component* component =
-                         nullptr;
+                    Component* component = nullptr;
 
+
+                    // ====================================================
+                    // Find Reflection Type
+                    // ====================================================
 
                     const TypeInfo* typeInfo =
                          ReflectionRegistry::Instance()
@@ -192,26 +182,23 @@ public:
                               serializedComponent.typeId
                          );
 
-
                     if (!typeInfo)
                     {
+                         std::cerr
+                              << "[SceneSerializer Error] "
+                              << "Unknown Component TypeId: "
+                              << serializedComponent.typeId
+                              << std::endl;
+
                          continue;
                     }
 
 
-                    // =============================================
-                    // Transform 特殊处理
+                    // ====================================================
+                    // Transform Special Case
                     //
-                    // GameObject() 已经自动创建 Transform
-                    //
-                    // 所以：
-                    //
-                    // 不再 Create<Transform>()
-                    //
-                    // 直接使用：
-                    //
-                    // gameObject->transform
-                    // =============================================
+                    // GameObject constructor 已经创建 Transform
+                    // ====================================================
 
                     const TypeInfo* transformInfo =
                          ReflectionRegistry::Instance()
@@ -220,11 +207,9 @@ public:
                          );
 
 
-                    if (
-                         transformInfo &&
+                    if (transformInfo &&
                          serializedComponent.typeId ==
-                         transformInfo->id
-                         )
+                         transformInfo->id)
                     {
                          component =
                               gameObjectPtr->transform;
@@ -242,13 +227,44 @@ public:
 
                     if (!component)
                     {
+                         std::cerr
+                              << "[SceneSerializer Error] "
+                              << "Failed to create Component. "
+                              << "TypeId="
+                              << serializedComponent.typeId
+                              << std::endl;
+
                          continue;
                     }
 
 
-                    // =============================================
-                    // Component ObjId
-                    // =============================================
+                    // ====================================================
+                    // Register Component
+                    //
+                    // 这里非常重要：
+                    //
+                    // serialized objId
+                    //      ↓
+                    // ReferenceInfo.ObjectID
+                    //      ↓
+                    // Scene m_Objects
+                    //
+                    // 三者统一
+                    // ====================================================
+
+                    target->AddComponent(
+                         component,
+                         scopeLevel,
+                         scopeID,
+                         serializedComponent.objId
+                    );
+
+
+                    // ====================================================
+                    // Local Lookup
+                    //
+                    // 后面的 Deserialize / LoadReference 使用
+                    // ====================================================
 
                     components[
                          serializedComponent.objId
@@ -256,58 +272,37 @@ public:
                }
 
 
-               // =================================================
-               // 第一阶段创建完成
-               //
-               // 加入 Scene
-               // =================================================
+               // ========================================================
+               // Register + Add GameObject To Scene
+               // ========================================================
 
                target->AddGameObject(
-                    std::move(gameObject)
+                    std::move(gameObject),
+                    scopeLevel,
+                    scopeID,
+                    serializedObject.id
                );
           }
 
 
-          // =====================================================
-          // 第二阶段
-          //
-          // 所有对象都已经存在
-          //
-          // 现在才设置 Data
-          // =====================================================
-
-          for (
-               const auto& serializedObject :
-               objects
-               )
+       
+          for (const auto& serializedObject : objects)
           {
-               for (
-                    const auto& serializedComponent :
-                    serializedObject.components
-                    )
+               for (const auto& serializedComponent :
+                    serializedObject.components)
                {
                     auto it =
                          components.find(
                               serializedComponent.objId
                          );
 
-
-                    if (
-                         it ==
-                         components.end()
-                         )
-                    {
+                    if (it == components.end())
                          continue;
-                    }
 
 
                     Component* component =
                          it->second;
 
-
-                    // =============================================
-                    // Data -> Component
-                    // =============================================
 
                     JsonSerializer::Deserialize(
                          *component,
@@ -315,39 +310,25 @@ public:
                     );
                }
           }
+          
 
-          for (
-               const auto& serializedObject :
-               objects
-               )
+          for (const auto& serializedObject : objects)
           {
-               for (
-                    const auto& serializedComponent :
-                    serializedObject.components
-                    )
+               for (const auto& serializedComponent :
+                    serializedObject.components)
                {
                     auto it =
                          components.find(
                               serializedComponent.objId
                          );
 
-
-                    if (
-                         it ==
-                         components.end()
-                         )
-                    {
+                    if (it == components.end())
                          continue;
-                    }
 
 
                     Component* component =
                          it->second;
 
-
-                    // =============================================
-                    // Data -> Component
-                    // =============================================
 
                     JsonSerializer::LoadReference(
                          *component,
@@ -355,8 +336,44 @@ public:
                     );
                }
           }
-     }
 
+
+          // ============================================================
+          // Phase 4
+          //
+          // Scene Loader Created
+          //
+          // 此时：
+          //
+          // 普通数据       ✓
+          // References     ✓
+          // Scene Registry ✓
+          //
+          // Component 可以正式初始化
+          // ============================================================
+
+          for (const auto& serializedObject : objects)
+          {
+               for (const auto& serializedComponent :
+                    serializedObject.components)
+               {
+                    auto it =
+                         components.find(
+                              serializedComponent.objId
+                         );
+
+                    if (it == components.end())
+                         continue;
+
+
+                    Component* component =
+                         it->second;
+
+
+                    component->OnCreatedBySceneLoader();
+               }
+          }
+     }
 
      // =========================================================
      // Serialize Scene

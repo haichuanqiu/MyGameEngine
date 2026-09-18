@@ -6,7 +6,7 @@
 #include "Scene.h"
 #include "rendering/VertexDataController.h"
 #include "rendering/RenderSystem.h"
-
+#include "Profiler/profiler.h"
 class Engine
 {
 public:
@@ -39,7 +39,30 @@ public:
           return it->second;
      }
 
+     void Update()
+     {
 
+          std::vector<Component*> components;
+
+          {
+               ENGINE_PROFILE_SCOPE("Find Components");
+
+               components =
+                    currentScene.FindAllOfType<Component>();
+          }
+
+          {
+               ENGINE_PROFILE_SCOPE("Component Update");
+
+               for (auto component : components)
+               {
+                    if (component)
+                    {
+                         component->Update();
+                    }
+               }
+          }
+     }
 public:
 
      Scene currentScene;
@@ -48,13 +71,7 @@ public:
 
      OpenGLVertexDataController vertexDataController;
      RenderSystem renderSystem;
-     void Update() {
-          auto components = currentScene.FindAllOfType<Component>();
-          for (auto component : components)
-          {
-               component->Update();
-          }
-     }
+
 private:
 
      Engine()

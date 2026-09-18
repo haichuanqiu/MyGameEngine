@@ -178,11 +178,7 @@ namespace testScene {
 		);
 
 		renderer->renderSystemIndex = cubeMeshID;
-
-		engine.renderSystem.RegisterRenderer(
-			renderer
-		);
-
+		
 		ReferenceTest* Test = cube.AddComponent<ReferenceTest>();
 
 		Test->material = AssetManager::Instance().Find<Material>(materialID);

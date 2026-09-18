@@ -65,8 +65,6 @@ public:
 
      bool setShader()
      {
-          // Both paths must exist before
-          // trying to build a shader.
 
           if (vertShaderPath.empty() ||
                fragShaderPath.empty())

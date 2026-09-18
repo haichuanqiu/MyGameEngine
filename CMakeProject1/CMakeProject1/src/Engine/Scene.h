@@ -7,7 +7,6 @@
 
 #include "GameObjectSystem.h"
 
-
 class Scene
 {
 public:
@@ -17,7 +16,7 @@ public:
      // ============================================================
 
      Scene() = default;
-
+     std::string filePath;
 
      // ============================================================
      // Scene Index
@@ -29,7 +28,15 @@ public:
      // ============================================================
      // Add GameObject
      // ============================================================
+    void ClearScene()
+{
 
+    m_Objects.clear();
+
+    m_GameObjects.clear();
+
+    m_NextObjectID = 1;
+}
      GameObject& AddGameObject()
      {
           auto gameObject = std::make_unique<GameObject>();
@@ -43,7 +50,127 @@ public:
           return *ptr;
      }
 
+     void AddGameObject(
+          std::unique_ptr<GameObject> gameObject,
+          int scopeLevel,
+          int scopeID,
+          int objectID)
+     {
+          if (!gameObject)
+          {
+               std::cerr
+                    << "[Scene Error] AddGameObject: gameObject is nullptr"
+                    << std::endl;
 
+               return;
+          }
+
+
+          // ============================================================
+          // Check Duplicate ObjectID
+          // ============================================================
+
+          auto it = m_Objects.find(objectID);
+
+          if (it != m_Objects.end())
+          {
+               std::cerr
+                    << "[Scene Error] Duplicate ObjectID: "
+                    << objectID
+                    << ", old object = "
+                    << static_cast<void*>(it->second)
+                    << ", new GameObject = "
+                    << static_cast<void*>(gameObject.get())
+                    << ". Old mapping will be overwritten."
+                    << std::endl;
+
+               m_Objects.erase(it);
+          }
+
+
+          // ============================================================
+          // Set ReferenceInfo
+          // ============================================================
+
+          gameObject->ReferenceInfo.ScopeLevel = scopeLevel;
+          gameObject->ReferenceInfo.ScopeID = scopeID;
+          gameObject->ReferenceInfo.ObjectID = objectID;
+
+
+          // ============================================================
+          // Register
+          // ============================================================
+
+          GameObject* ptr = gameObject.get();
+
+          m_Objects[objectID] = ptr;
+
+
+          // ============================================================
+          // Scene Owns GameObject
+          // ============================================================
+
+          m_GameObjects.push_back(
+               std::move(gameObject)
+          );
+     }
+
+     void AddComponent(
+          Component* component,
+          int scopeLevel,
+          int scopeID,
+          int objectID)
+     {
+          if (!component)
+          {
+               std::cerr
+                    << "[Scene Error] AddComponent: component is nullptr"
+                    << std::endl;
+
+               return;
+          }
+
+
+          // ============================================================
+          // Check Duplicate ObjectID
+          // ============================================================
+
+          auto it = m_Objects.find(objectID);
+
+          if (it != m_Objects.end())
+          {
+               std::cerr
+                    << "[Scene Error] Duplicate ObjectID: "
+                    << objectID
+                    << ", old object = "
+                    << static_cast<void*>(it->second)
+                    << ", new Component = "
+                    << static_cast<void*>(component)
+                    << ". Old mapping will be overwritten."
+                    << std::endl;
+
+               m_Objects.erase(it);
+          }
+
+
+          // ============================================================
+          // Set ReferenceInfo
+          // ============================================================
+
+          component->ReferenceInfo.ScopeLevel = scopeLevel;
+          component->ReferenceInfo.ScopeID = scopeID;
+          component->ReferenceInfo.ObjectID = objectID;
+
+
+          // ============================================================
+          // Register
+          // ============================================================
+
+          m_Objects[objectID] = component;
+          TryAddRenderer(component);
+     }
+
+     void TryAddRenderer(Component* component);
      // ============================================================
      // Add Existing GameObject
      // ============================================================
@@ -177,8 +304,7 @@ public:
      // Component Added
      // ============================================================
 
-     uint64_t OnComponentAdded(Component* component)
-     {
+     uint64_t OnComponentAdded(Component* component) {
           if (!component)
                return 0;
 
@@ -194,9 +320,11 @@ public:
           uint64_t objectID = component->ReferenceInfo.ObjectID;
 
           m_Objects[objectID] = component;
+         TryAddRenderer(component);
 
           return objectID;
      }
+    
 
      template<typename T>
      std::vector<T*> FindAllOfType()

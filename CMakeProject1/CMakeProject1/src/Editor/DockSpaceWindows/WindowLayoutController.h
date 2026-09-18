@@ -22,7 +22,8 @@ public:
 	InspectorView m_InspectorView;
 	SceneView m_SceneView;
 	AssetView m_AssetView;
-	
+	ProfilerView m_ProfilerView;
+	ToolBar m_ToolBar;
 private:
 
 }; 

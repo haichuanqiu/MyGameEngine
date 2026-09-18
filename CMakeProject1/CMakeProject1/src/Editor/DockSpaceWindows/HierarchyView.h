@@ -11,7 +11,9 @@ public:
      {
           m_TargetScene = scene;
      }
-
+     void ClearTarget() {
+          m_TargetScene = nullptr;
+     }
 
      void Draw();
 

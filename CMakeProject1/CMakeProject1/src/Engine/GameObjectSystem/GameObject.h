@@ -5,7 +5,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-
+#include <iostream>
 #include "Serialization/ComponentRegistry.h"
 #include "EngineObject.h"
 #include "Event.h"
@@ -31,6 +31,7 @@ public:
      virtual void OnRemoved(GameObject* owner) {}
 
      virtual void Update(){}
+     virtual  void OnCreatedBySceneLoader(){ };
 };
 REFLECT_BASE(
      Component,
@@ -47,7 +48,10 @@ public:
 
      GameObject();
 
-     ~GameObject() = default;
+     ~GameObject()
+     {
+          ClearComponents();
+     }
 
      GameObject(const GameObject&) = delete;
 
@@ -146,7 +150,22 @@ public:
 
      Renderer* renderer =
           nullptr;
+     void ClearComponents()
+     {
+          for (auto& component : m_Components)
+          {
+               if (!component)
+                    continue;
 
+               component->OnRemoved(this);
+
+               component->gameObject = nullptr;
+          }
+          transform = nullptr;
+          renderer = nullptr;
+
+          m_Components.clear();
+     }
 
 private:
 

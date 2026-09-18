@@ -1,6 +1,8 @@
 #include "Engine/Components/RenderingRelatedComponents.h"
 #include "rendering/RenderSystem.h"
 #include "Engine/GameObjectSystem.h"
+
+#include "Engine/Engine.h"
 void PointLight::UpdateLightData(RenderSystem& target)
 {
      id = target.GetLighting().UpdatePointLightData(
@@ -18,16 +20,63 @@ void PointLight::UpdateLightData()
 
 	UpdateLightData(*m_target);
 }
-void PointLight::OnAdded(GameObject* owner) 
-	{
-		owner->transform->AddCallback(
-			[this](const Transform& transform)
-			{
-				OnTransformChanged(transform);
-			}
-		);
-	}
+void PointLight::OnCreatedBySceneLoader() {
+
+     SetDefaultTarget(
+          &Engine::Instance().renderSystem
+     );
+
+
+     UpdateLightData(
+          Engine::Instance().renderSystem
+     );
+     if (m_TransformSubscription == -1)
+          return;
+     if (!gameObject)
+          return;
+
+     if (!gameObject->transform)
+          return;
+
+     m_TransformSubscription =
+          gameObject->transform->OnChange.Subscribe(
+               [this](const Transform& transform)
+               {
+                    OnTransformChanged(transform);
+               }
+          );
+}
+
+void PointLight::OnAdded(GameObject* owner)
+{
+     if(m_TransformSubscription==-1)
+          return;
+     if (!owner)
+          return;
+
+     if (!owner->transform)
+          return;
+
+     m_owner = owner;
+
+     m_TransformSubscription =
+          owner->transform->OnChange.Subscribe(
+               [this](const Transform& transform)
+               {
+                    OnTransformChanged(transform);
+               }
+          );
+
+}
 GameObject::GameObject()
 {
 	transform = AddComponent<Transform>();
+}
+
+
+void Scene::TryAddRenderer(Component* component) {
+     if (Renderer* renderer = dynamic_cast<Renderer*>(component))
+     {
+          Engine::Instance().renderSystem.RegisterRenderer(renderer);
+     }
 }

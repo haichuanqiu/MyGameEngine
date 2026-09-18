@@ -3,10 +3,11 @@
 #include "Engine/GameObjectSystem/GameObject.h"
 #include "Engine/DataStructure.h"
 #include "Serialization/ComponentRegistry.h"
+#include "Event.h"
 class Transform : public Component
 {
 public:
-     using Callback = std::function<void(const Transform&)>;
+     Event<const Transform&> OnChange;
 
 public:
      // =========================
@@ -53,31 +54,23 @@ public:
           rotation = value;
           NotifyChanged();
      }
-
-     // =========================
-     // Callback
-     // =========================
-
-     void AddCallback(Callback callback)
-     {
-          callbacks.push_back(std::move(callback));
-     }
 private:
      void NotifyChanged()
      {
-          if (callbacks.empty())
+        /*  if (callbacks.empty())
                return;
 
           for (auto& callback : callbacks)
           {
                callback(*this);
-          }
+          }*/
+   
+          OnChange.Invoke(*this);
      }
 private:
      Vector3 position;
      Vector3 scale{ 1.0f, 1.0f, 1.0f };
      Quaternion rotation;
-     std::vector<Callback> callbacks;
 
      REFLECT_FRIEND(Transform);
 };

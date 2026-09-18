@@ -19,7 +19,7 @@ int main()
      testLoadScene::OnSceneCreated(*editor.m_Engine);
      double targetFrameTime = 1.0 / 60.0;
     
-     editor.EngineRunning=true;
+     //editor.EngineRunning=true;
      while (!editor.MiniEngineWindow.ShouldClose())
      {
           
