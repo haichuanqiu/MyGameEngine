@@ -5,6 +5,7 @@
 #include "Engine/Engine.h"
 void PointLight::UpdateLightData(RenderSystem& target)
 {
+     
      id = target.GetLighting().UpdatePointLightData(
           id,
           gameObject->transform->GetPosition(),

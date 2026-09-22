@@ -57,13 +57,6 @@ public:
 private:
      void NotifyChanged()
      {
-        /*  if (callbacks.empty())
-               return;
-
-          for (auto& callback : callbacks)
-          {
-               callback(*this);
-          }*/
    
           OnChange.Invoke(*this);
      }

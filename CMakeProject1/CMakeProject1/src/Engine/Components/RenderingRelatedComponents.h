@@ -41,6 +41,7 @@ public:
 	void SetDefaultTarget(RenderSystem* target) {
 		m_target = target;
 	}
+
 	void OnAdded(GameObject* owner) override;
 	void OnTransformChanged(const Transform& transform)
 	{
@@ -62,7 +63,8 @@ REFLECT_BASE(
 	Component,
 	FIELD(PointLight, Intensity),
 	FIELD(PointLight, Range),
-	FIELD(PointLight, Color)
+	FIELD(PointLight, Color),
+	FIELD(PointLight, id)
 )
 REGISTER_COMPONENT(PointLight)
 class Camera : public Component

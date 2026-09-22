@@ -12,14 +12,7 @@ public:
 	bool testBool=false;
 	std::string testString="";
 	void Update() {
-		std::cout
-			<< "ts ReferenceInfo = "
-			<< ts->ReferenceInfo.ScopeLevel
-			<< ", "
-			<< ts->ReferenceInfo.ScopeID
-			<< ", "
-			<< ts->ReferenceInfo.ObjectID
-			<< std::endl;
+		
 		auto s=ts->GetPosition();
 		Vector3 vec(s.x + 1, s.y, s.z);
 		ts->SetPosition(vec);

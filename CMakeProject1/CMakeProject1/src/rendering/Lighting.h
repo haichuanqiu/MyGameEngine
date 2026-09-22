@@ -313,6 +313,14 @@ public:
           float range
      )
      {
+          std::cout
+               << "UpdatePointLightData = "
+               << index
+               << ", "
+               << position.x
+               << ", "
+               << intensity
+               << std::endl;
           if (index == -1)
           {
                if (m_Lights.pointLightCount >= MaxPointLights)
