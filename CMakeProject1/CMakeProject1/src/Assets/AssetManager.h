@@ -17,7 +17,7 @@ class Asset : public EngineObject
 {
 public:
      virtual ~Asset() = default;
-
+     virtual void OnLoadedBySerialization(){};
 
      std::string filePath;
 
@@ -312,10 +312,6 @@ public:
                fs::recursive_directory_iterator(path)
                )
           {
-               // =================================================
-               // Only Files
-               // =================================================
-
                if (!entry.is_regular_file())
                     continue;
 
@@ -323,10 +319,6 @@ public:
                const fs::path& filePath =
                     entry.path();
 
-
-               // =================================================
-               // Extension
-               // =================================================
 
                if (
                     filePath.extension()
@@ -336,10 +328,6 @@ public:
                     continue;
                }
 
-
-               // =================================================
-               // Open File
-               // =================================================
 
                std::ifstream file(
                     filePath,
@@ -358,10 +346,6 @@ public:
                }
 
 
-               // =================================================
-               // Read Entire File
-               // =================================================
-
                std::stringstream buffer;
 
                buffer <<
@@ -371,10 +355,6 @@ public:
                std::string content =
                     buffer.str();
 
-
-               // =================================================
-               // Load
-               // =================================================
 
                int objectID =
                     LoadContent(
@@ -399,6 +379,27 @@ public:
                     << " ObjectID: "
                     << objectID
                     << std::endl;
+          }
+
+
+          // =====================================================
+          // Serialization Loaded Callback
+          // =====================================================
+
+          AssetManager& manager =
+               Instance();
+
+
+          for (
+               const std::shared_ptr<Asset>& asset :
+               manager.m_Assets
+               )
+          {
+               if (!asset)
+                    continue;
+
+
+               asset->OnLoadedBySerialization();
           }
      }
 

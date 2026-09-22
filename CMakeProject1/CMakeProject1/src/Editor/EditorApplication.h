@@ -104,12 +104,12 @@ private:
                SceneFrameBufferID;
 
      }
-     void RebuidScene() {
+     void RebuildScene() {
           mylayout.m_InspectorView.ClearTarget();
           mylayout.m_HierarchyView.ClearTarget();
           std::cout << "RebuildScene" << std::endl;
           const std::string scenePath =
-               m_Engine->currentScene.filePath;
+               m_Engine->currentScene->filePath;
 
           std::ifstream file(
                scenePath,
@@ -135,13 +135,14 @@ private:
           const std::string sceneData =
                buffer.str();
 
-          m_Engine->currentScene.ClearScene();
+          m_Engine->currentScene->ClearScene();
 
           SceneSerializer::LoadScene(
-               &m_Engine->currentScene,
+               m_Engine->currentScene,
                sceneData
           );
-          mylayout.m_HierarchyView.SetTarget(&m_Engine->currentScene);
+     
+          mylayout.m_HierarchyView.SetTarget(m_Engine->currentScene);
           
      }
   
@@ -157,11 +158,11 @@ void RegisterUIEvent(){
           [&]() {
                EngineRunning = false;
                mylayout.m_ToolBar.InPlayMode = false;
-               RebuidScene();
+               RebuildScene();
           }
      );
 
-     mylayout.m_HierarchyView.SetTarget(&m_Engine->currentScene);
+     mylayout.m_HierarchyView.SetTarget(m_Engine->currentScene);
 
      mylayout.m_HierarchyView.OnGameObjectClicked.Subscribe(
           [&](GameObject* gameObject)

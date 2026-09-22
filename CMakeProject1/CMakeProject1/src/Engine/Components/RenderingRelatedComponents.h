@@ -9,8 +9,9 @@ class Renderer : public Component
 {  
 public:
 	void OnCreatedBySceneLoader() {
-		material->setShader();
-		
+		if (material!=nullptr) {
+			material->setShader();
+		}
 	 }
 	Material* material;
 	int renderSystemIndex = -1;
@@ -43,8 +44,9 @@ public:
 	void OnAdded(GameObject* owner) override;
 	void OnTransformChanged(const Transform& transform)
 	{
-		if(m_target){
-		UpdateLightData(*m_target);
+
+		if (m_target) {
+			UpdateLightData(*m_target);
 		}
 	}
 	

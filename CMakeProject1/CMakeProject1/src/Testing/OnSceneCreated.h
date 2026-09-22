@@ -102,7 +102,7 @@ namespace testScene {
 		// --------------------------------
 
 		GameObject& light =
-			engine.currentScene.AddGameObject();
+			engine.currentScene->AddGameObject();
 
 		light.name = "Light";
 
@@ -129,7 +129,7 @@ namespace testScene {
 		// --------------------------------
 
 		GameObject& cube =
-			engine.currentScene.AddGameObject();
+			engine.currentScene->AddGameObject();
 
 		cube.name = "Cube";
 
@@ -196,8 +196,8 @@ namespace testScene {
 		Test->testBool = true;
 		Test->testString = "ReferenceTest Primitive Test";
 
-		auto s=SceneSerializer::Serialize(engine.currentScene);
-		SceneSerializer::SaveSceneTo(engine.currentScene,"../../../../CMakeProject1/assets/SceneData");
+		auto s=SceneSerializer::Serialize(*engine.currentScene);
+		SceneSerializer::SaveSceneTo(*engine.currentScene,"../../../../CMakeProject1/assets/SceneData");
 		
 		AssetManager::Instance().Save<Material>(
 			materialID,

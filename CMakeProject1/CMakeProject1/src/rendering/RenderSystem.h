@@ -436,6 +436,8 @@ public:
                if (rd->renderSystemIndex < 0)
                     continue;
 
+               if (rd->material == nullptr)
+                    continue;
 
                // ------------------------------------------------
                // Transform

@@ -179,12 +179,12 @@ namespace testLoadScene
           // 3. Load Scene
           // ========================================================
 
-          engine.currentScene.filePath = scenePath;
+          engine.currentScene->filePath = scenePath;
           SceneSerializer::LoadScene(
-               &engine.currentScene,
+               engine.currentScene,
                sceneData
           );
-          engine.currentScene.filePath= scenePath;
+          engine.currentScene->filePath = scenePath;
 
 
           // ========================================================

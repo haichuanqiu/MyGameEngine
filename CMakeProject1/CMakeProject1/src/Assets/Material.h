@@ -81,7 +81,9 @@ public:
 
           return shader != nullptr;
      }
-
+     void OnLoadedBySerialization() {
+          setShader();
+     }
     
 
 private:

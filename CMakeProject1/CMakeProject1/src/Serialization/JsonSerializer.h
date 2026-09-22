@@ -1214,12 +1214,8 @@ private:
                     return false;
                }
 
-
-               EngineObject* resolved =
-                    ReferenceResolver::Instance()
-                    .GetItem(
-                         reference
-                    );
+               //EngineObject* resolved =nullptr;
+               EngineObject* resolved =ReferenceResolver::Instance() .GetItem(reference);
 
 
                if (property.setReference)

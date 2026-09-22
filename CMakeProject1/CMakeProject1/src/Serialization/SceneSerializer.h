@@ -11,6 +11,7 @@
 #include <memory>
 #include <cctype>
 #include <fstream>
+#include <iostream>
 
 
 class SceneSerializer
@@ -19,24 +20,50 @@ private:
 
      // =========================================================
      // Serialized Component
+     //
+     // objectId:
+     //
+     // 不再来自 Component 外层 ObjId。
+     //
+     // 现在来自：
+     //
+     // Data
+     // {
+     //      "ReferenceInfo":
+     //      {
+     //           "ScopeLevel": 0,
+     //           "ScopeID": 0,
+     //           "ObjectID": 2
+     //      }
+     // }
      // =========================================================
 
      struct SerializedComponent
      {
-          uint64_t objId = 0;
+          uint64_t objectId = 0;
+
           TypeId typeId = 0;
+
           std::string data;
      };
 
 
      // =========================================================
      // Serialized GameObject
+     //
+     // objectId:
+     //
+     // 来自 GameObject 外层：
+     //
+     // ObjectId: 1
      // =========================================================
 
      struct SerializedGameObject
      {
-          uint64_t id = 0;
+          uint64_t objectId = 0;
+
           std::string name;
+
 
           std::vector<SerializedComponent>
                components;
@@ -59,12 +86,15 @@ public:
                std::ios::trunc
           );
 
+
           if (!file.is_open())
                return false;
 
 
           const std::string content =
-               Serialize(target);
+               Serialize(
+                    target
+               );
 
 
           file.write(
@@ -81,71 +111,38 @@ public:
 
           file.close();
 
+
           return true;
      }
 
 
-     // =========================================================
-     // Load Scene
+     // ============================================================
+     // Phase 1
      //
-     // 两阶段：
+     // Create GameObjects / Components
      //
-     // 第一阶段：
-     //     创建 GameObject
-     //     创建 Component
-     //     建立 ID Dictionary
+     // Register:
      //
-     // 第二阶段：
-     //     Deserialize Data
+     // GameObject:
+     //      ObjectId
      //
-     // 目前不处理 Reference
-     // =========================================================
+     // Component:
+     //      Data.ReferenceInfo.ObjectID
+     //
+     // 此阶段不 Deserialize。
+     // ============================================================
 
-     static void LoadScene(
+     static void CreateObjects(
           Scene* target,
-          const std::string& content)
+          std::vector<SerializedGameObject>& objects,
+          std::unordered_map<uint64_t, Component*>& components,
+          int scopeLevel,
+          int scopeID)
      {
-          if (!target)
-               return;
-
-
-          // ============================================================
-          // Parse
-          // ============================================================
-
-          std::vector<SerializedGameObject> objects =
-               Parse(content);
-
-
-          // ============================================================
-          // Component Dictionary
-          //
-          // 仅供本次 LoadScene 后续阶段使用
-          //
-          // Serialized ObjId -> 新创建的 Component*
-          // ============================================================
-
-          std::unordered_map<uint64_t, Component*> components;
-
-
-          // ============================================================
-          // Scene Scope
-          // ============================================================
-
-          const int scopeLevel = 0;
-          const int scopeID = target->sceneIndex;
-
-
-          // ============================================================
-          // Phase 1
-          //
-          // 创建全部 GameObject / Component
-          // 注册 ReferenceInfo
-          //
-          // 此阶段不 Deserialize
-          // ============================================================
-
-          for (auto& serializedObject : objects)
+          for (
+               auto& serializedObject :
+               objects
+               )
           {
                // ========================================================
                // Create GameObject
@@ -153,6 +150,7 @@ public:
 
                auto gameObject =
                     std::make_unique<GameObject>();
+
 
                gameObject->name =
                     serializedObject.name;
@@ -166,21 +164,25 @@ public:
                // Components
                // ========================================================
 
-               for (auto& serializedComponent :
-                    serializedObject.components)
+               for (
+                    auto& serializedComponent :
+                    serializedObject.components
+                    )
                {
-                    Component* component = nullptr;
+                    Component* component =
+                         nullptr;
 
 
-                    // ====================================================
+                    // ===================================================
                     // Find Reflection Type
-                    // ====================================================
+                    // ===================================================
 
                     const TypeInfo* typeInfo =
                          ReflectionRegistry::Instance()
                          .FindById(
                               serializedComponent.typeId
                          );
+
 
                     if (!typeInfo)
                     {
@@ -190,15 +192,16 @@ public:
                               << serializedComponent.typeId
                               << std::endl;
 
+
                          continue;
                     }
 
 
-                    // ====================================================
+                    // ===================================================
                     // Transform Special Case
                     //
-                    // GameObject constructor 已经创建 Transform
-                    // ====================================================
+                    // GameObject constructor 已经创建 Transform。
+                    // ===================================================
 
                     const TypeInfo* transformInfo =
                          ReflectionRegistry::Instance()
@@ -207,9 +210,11 @@ public:
                          );
 
 
-                    if (transformInfo &&
+                    if (
+                         transformInfo &&
                          serializedComponent.typeId ==
-                         transformInfo->id)
+                         transformInfo->id
+                         )
                     {
                          component =
                               gameObjectPtr->transform;
@@ -234,70 +239,97 @@ public:
                               << serializedComponent.typeId
                               << std::endl;
 
+
                          continue;
                     }
 
 
-                    // ====================================================
+                    // ===================================================
                     // Register Component
                     //
-                    // 这里非常重要：
+                    // ID 来自：
                     //
-                    // serialized objId
-                    //      ↓
-                    // ReferenceInfo.ObjectID
-                    //      ↓
-                    // Scene m_Objects
+                    // Data.ReferenceInfo.ObjectID
                     //
-                    // 三者统一
-                    // ====================================================
+                    // ParseComponents 已经提前读取。
+                    // ===================================================
 
                     target->AddComponent(
                          component,
                          scopeLevel,
                          scopeID,
-                         serializedComponent.objId
+                         serializedComponent.objectId
                     );
 
 
-                    // ====================================================
+                    // ===================================================
                     // Local Lookup
                     //
-                    // 后面的 Deserialize / LoadReference 使用
-                    // ====================================================
+                    // ObjectID -> Component*
+                    //
+                    // Phase 2 / 3 / 4 使用。
+                    // ===================================================
 
                     components[
-                         serializedComponent.objId
-                    ] = component;
+                         serializedComponent.objectId
+                    ] =
+                         component;
                }
 
 
                // ========================================================
-               // Register + Add GameObject To Scene
+               // Register GameObject
+               //
+               // ID 来自：
+               //
+               // ObjectId:
                // ========================================================
 
                target->AddGameObject(
-                    std::move(gameObject),
+                    std::move(
+                         gameObject
+                    ),
                     scopeLevel,
                     scopeID,
-                    serializedObject.id
+                    serializedObject.objectId
                );
           }
+     }
 
 
-       
-          for (const auto& serializedObject : objects)
+     // ============================================================
+     // Phase 2
+     //
+     // Deserialize Normal Data
+     // ============================================================
+
+     static void DeserializeComponents(
+          const std::vector<SerializedGameObject>& objects,
+          const std::unordered_map<uint64_t, Component*>& components)
+     {
+          for (
+               const auto& serializedObject :
+               objects
+               )
           {
-               for (const auto& serializedComponent :
-                    serializedObject.components)
+               for (
+                    const auto& serializedComponent :
+                    serializedObject.components
+                    )
                {
                     auto it =
                          components.find(
-                              serializedComponent.objId
+                              serializedComponent.objectId
                          );
 
-                    if (it == components.end())
+
+                    if (
+                         it ==
+                         components.end()
+                         )
+                    {
                          continue;
+                    }
 
 
                     Component* component =
@@ -310,20 +342,42 @@ public:
                     );
                }
           }
-          
+     }
 
-          for (const auto& serializedObject : objects)
+
+     // ============================================================
+     // Phase 3
+     //
+     // Load References
+     // ============================================================
+
+     static void LoadComponentReferences(
+          const std::vector<SerializedGameObject>& objects,
+          const std::unordered_map<uint64_t, Component*>& components)
+     {
+          for (
+               const auto& serializedObject :
+               objects
+               )
           {
-               for (const auto& serializedComponent :
-                    serializedObject.components)
+               for (
+                    const auto& serializedComponent :
+                    serializedObject.components
+                    )
                {
                     auto it =
                          components.find(
-                              serializedComponent.objId
+                              serializedComponent.objectId
                          );
 
-                    if (it == components.end())
+
+                    if (
+                         it ==
+                         components.end()
+                         )
+                    {
                          continue;
+                    }
 
 
                     Component* component =
@@ -336,44 +390,277 @@ public:
                     );
                }
           }
+     }
 
 
-          // ============================================================
-          // Phase 4
-          //
-          // Scene Loader Created
-          //
-          // 此时：
-          //
-          // 普通数据       ✓
-          // References     ✓
-          // Scene Registry ✓
-          //
-          // Component 可以正式初始化
-          // ============================================================
+     // ============================================================
+     // Phase 4
+     //
+     // Notify Components
+     // ============================================================
 
-          for (const auto& serializedObject : objects)
+     static void NotifyComponentsCreated(
+          const std::vector<SerializedGameObject>& objects,
+          const std::unordered_map<uint64_t, Component*>& components)
+     {
+          for (
+               const auto& serializedObject :
+               objects
+               )
           {
-               for (const auto& serializedComponent :
-                    serializedObject.components)
+               for (
+                    const auto& serializedComponent :
+                    serializedObject.components
+                    )
                {
                     auto it =
                          components.find(
-                              serializedComponent.objId
+                              serializedComponent.objectId
                          );
 
-                    if (it == components.end())
+
+                    if (
+                         it ==
+                         components.end()
+                         )
+                    {
                          continue;
+                    }
 
 
                     Component* component =
                          it->second;
 
 
-                    component->OnCreatedBySceneLoader();
+                    component
+                         ->OnCreatedBySceneLoader();
                }
           }
      }
+
+
+     // ============================================================
+     // Load Scene
+     // ============================================================
+
+     static void LoadScene(
+          Scene* target,
+          const std::string& content)
+     {
+          if (!target)
+               return;
+
+
+          // ============================================================
+          // Parse
+          // ============================================================
+
+          std::vector<SerializedGameObject> objects =
+               Parse(
+                    content
+               );
+
+
+          // ============================================================
+          // Component Lookup
+          // ============================================================
+
+          std::unordered_map<uint64_t, Component*>
+               components;
+
+
+          // ============================================================
+          // Scene Scope
+          // ============================================================
+
+          const int scopeLevel =
+               0;
+
+
+          const int scopeID =
+               target->sceneIndex;
+
+
+          // ============================================================
+          // Phase 1
+          // ============================================================
+
+          CreateObjects(
+               target,
+               objects,
+               components,
+               scopeLevel,
+               scopeID
+          );
+
+
+          // ============================================================
+          // Phase 2
+          // ============================================================
+
+          DeserializeComponents(
+               objects,
+               components
+          );
+
+
+          // ============================================================
+          // Phase 3
+          // ============================================================
+
+          LoadComponentReferences(
+               objects,
+               components
+          );
+
+
+          // ============================================================
+          // Phase 4
+          // ============================================================
+
+          NotifyComponentsCreated(
+               objects,
+               components
+          );
+     }
+
+
+     // ============================================================
+     // Test Load Context
+     //
+     // TestLoadScene1:
+     //
+     //      Phase 1
+     //      Phase 2
+     //
+     // TestLoadScene2:
+     //
+     //      Phase 3
+     //      Phase 4
+     // ============================================================
+
+     inline static std::vector<SerializedGameObject>
+          s_TestLoadObjects;
+
+
+     inline static std::unordered_map<uint64_t, Component*>
+          s_TestLoadComponents;
+
+
+     // ============================================================
+     // Test Load Scene 1
+     //
+     // Phase 1 + Phase 2
+     // ============================================================
+
+     static void TestLoadScene1(
+          Scene* target,
+          const std::string& content)
+     {
+          if (!target)
+               return;
+
+
+          // ============================================================
+          // Reset Previous Context
+          // ============================================================
+
+          s_TestLoadObjects.clear();
+
+          s_TestLoadComponents.clear();
+
+
+          // ============================================================
+          // Parse
+          // ============================================================
+
+          s_TestLoadObjects =
+               Parse(
+                    content
+               );
+
+
+          // ============================================================
+          // Scene Scope
+          // ============================================================
+
+          const int scopeLevel =
+               0;
+
+
+          const int scopeID =
+               target->sceneIndex;
+
+
+          // ============================================================
+          // Phase 1
+          //
+          // Create Objects
+          // ============================================================
+
+          CreateObjects(
+               target,
+               s_TestLoadObjects,
+               s_TestLoadComponents,
+               scopeLevel,
+               scopeID
+          );
+
+
+          // ============================================================
+          // Phase 2
+          //
+          // Deserialize
+          // ============================================================
+
+          DeserializeComponents(
+               s_TestLoadObjects,
+               s_TestLoadComponents
+          );
+     }
+
+
+     // ============================================================
+     // Test Load Scene 2
+     //
+     // Phase 3 + Phase 4
+     // ============================================================
+
+     static void TestLoadScene2()
+     {
+          // ============================================================
+          // Phase 3
+          //
+          // Load References
+          // ============================================================
+
+          LoadComponentReferences(
+               s_TestLoadObjects,
+               s_TestLoadComponents
+          );
+
+
+          // ============================================================
+          // Phase 4
+          //
+          // Notify Components Created
+          // ============================================================
+
+          NotifyComponentsCreated(
+               s_TestLoadObjects,
+               s_TestLoadComponents
+          );
+
+
+          // ============================================================
+          // Clear Test Context
+          // ============================================================
+
+          s_TestLoadObjects.clear();
+
+          s_TestLoadComponents.clear();
+     }
+
 
      // =========================================================
      // Serialize Scene
@@ -382,14 +669,6 @@ public:
      static std::string Serialize(
           const Scene& target)
      {
-          // =====================================================
-          // 先给所有 GameObject / Component 分配临时 ID
-          // =====================================================
-
-          auto map =
-               Scan(target);
-
-
           std::string content;
 
 
@@ -413,6 +692,7 @@ public:
                content +=
                     "{\n";
 
+
                content +=
                     "GameObject \n";
 
@@ -424,39 +704,39 @@ public:
                content +=
                     "name: ";
 
+
                content +=
                     gameObject.name;
+
 
                content +=
                     "\n";
 
 
                // =================================================
-               // GameObject ID
+               // Object ID
+               //
+               // GameObject 自己的 ObjectID。
+               //
+               // 不再使用 Serialize 临时 ID。
+               //
+               // ScopeLevel / ScopeID 不需要保存在这里。
                // =================================================
 
-               auto gameObjectIt =
-                    map.find(
-                         &gameObject
+               content +=
+                    "ObjectId: ";
+
+
+               content +=
+                    std::to_string(
+                         gameObject
+                         .ReferenceInfo
+                         .ObjectID
                     );
 
 
-               if (
-                    gameObjectIt !=
-                    map.end()
-                    )
-               {
-                    content +=
-                         "id: ";
-
-                    content +=
-                         std::to_string(
-                              gameObjectIt->second
-                         );
-
-                    content +=
-                         "\n";
-               }
+               content +=
+                    "\n";
 
 
                // =================================================
@@ -489,9 +769,9 @@ public:
 
 
                     // =============================================
-                    // 没有 Reflection
+                    // No Reflection
                     //
-                    // 不写 Component Block
+                    // 不写 Component Block。
                     // =============================================
 
                     if (!info)
@@ -519,49 +799,25 @@ public:
                     content +=
                          "TypeId:";
 
+
                     content +=
                          std::to_string(
                               typeId
                          );
+
 
                     content +=
                          "\n";
 
 
                     // =============================================
-                    // ObjId
-                    // =============================================
-
-                    auto componentIt =
-                         map.find(
-                              component.get()
-                         );
-
-
-                    if (
-                         componentIt !=
-                         map.end()
-                         )
-                    {
-                         uint64_t objId =
-                              componentIt->second;
-
-
-                         content +=
-                              "ObjId:";
-
-                         content +=
-                              std::to_string(
-                                   objId
-                              );
-
-                         content +=
-                              "\n";
-                    }
-
-
-                    // =============================================
                     // Data
+                    //
+                    // Component ObjectID 已经包含在：
+                    //
+                    // ReferenceInfo.ObjectID
+                    //
+                    // 所以外层不再保存 ObjId。
                     // =============================================
 
                     content +=
@@ -603,85 +859,6 @@ public:
 private:
 
      // =========================================================
-     // Scan
-     //
-     // 给当前 Scene 中所有对象分配临时 ID
-     //
-     // GameObject:
-     //     1
-     //     4
-     //     7
-     //
-     // Component:
-     //     2
-     //     3
-     //     5
-     //     6
-     //
-     // 目前这些 ID 只是一次 Serialize 的临时 ID。
-     // =========================================================
-
-     static std::unordered_map<
-          const void*,
-          uint64_t
-     >
-          Scan(const Scene& target)
-     {
-          std::unordered_map<
-               const void*,
-               uint64_t
-          > map;
-
-
-          uint64_t nextID =
-               1;
-
-
-          for (
-               const auto& gameObjectPtr :
-               target.GetAllGameObjects()
-               )
-          {
-               GameObject& gameObject =
-                    *gameObjectPtr;
-
-
-               // =================================================
-               // GameObject ID
-               // =================================================
-
-               map[
-                    &gameObject
-               ] =
-                    nextID++;
-
-
-                    // =================================================
-                    // Components
-                    // =================================================
-
-                    const auto& components =
-                         gameObject.GetComponents();
-
-
-                    for (
-                         const auto& componentPtr :
-                         components
-                         )
-                    {
-                         map[
-                              componentPtr.get()
-                         ] =
-                              nextID++;
-                    }
-          }
-
-
-          return map;
-     }
-
-
-     // =========================================================
      // Parse
      // =========================================================
 
@@ -689,9 +866,8 @@ private:
           Parse(
                const std::string& content)
      {
-          std::vector<
-               SerializedGameObject
-          > result;
+          std::vector<SerializedGameObject>
+               result;
 
 
           size_t pos =
@@ -756,13 +932,17 @@ private:
 
 
                // =================================================
-               // ID
+               // Object ID
+               //
+               // 新格式：
+               //
+               // ObjectId: 1
                // =================================================
 
-               object.id =
+               object.objectId =
                     ReadUInt64(
                          objectText,
-                         "id:"
+                         "ObjectId:"
                     );
 
 
@@ -777,7 +957,9 @@ private:
 
 
                result.push_back(
-                    std::move(object)
+                    std::move(
+                         object
+                    )
                );
 
 
@@ -792,13 +974,30 @@ private:
 
      // =========================================================
      // Parse Components
+     //
+     // Component 外层格式：
+     //
+     // Component{
+     //
+     //      TypeId:123
+     //
+     //      Data:
+     //      {
+     //           "ReferenceInfo":
+     //           {
+     //                "ScopeLevel": 0,
+     //                "ScopeID": 0,
+     //                "ObjectID": 2
+     //           }
+     //      }
+     // }
+     //
+     // Component ObjectID 直接从 Data 中读取。
      // =========================================================
 
      static void ParseComponents(
           const std::string& objectText,
-          std::vector<
-          SerializedComponent
-          >& result)
+          std::vector<SerializedComponent>& result)
      {
           size_t pos =
                0;
@@ -806,6 +1005,10 @@ private:
 
           while (true)
           {
+               // =================================================
+               // Find Component
+               // =================================================
+
                size_t componentBegin =
                     objectText.find(
                          "Component{",
@@ -821,6 +1024,10 @@ private:
                     break;
                }
 
+
+               // =================================================
+               // Component Brace Begin
+               // =================================================
 
                size_t braceBegin =
                     objectText.find(
@@ -838,6 +1045,10 @@ private:
                }
 
 
+               // =================================================
+               // Component Brace End
+               // =================================================
+
                size_t componentEnd =
                     FindMatchingBrace(
                          objectText,
@@ -853,6 +1064,10 @@ private:
                     break;
                }
 
+
+               // =================================================
+               // Component Text
+               // =================================================
 
                std::string componentText =
                     objectText.substr(
@@ -878,17 +1093,6 @@ private:
 
 
                // =================================================
-               // ObjId
-               // =================================================
-
-               component.objId =
-                    ReadUInt64(
-                         componentText,
-                         "ObjId:"
-                    );
-
-
-               // =================================================
                // Data
                // =================================================
 
@@ -898,8 +1102,55 @@ private:
                     );
 
 
+               // =================================================
+               // Object ID
+               //
+               // 不再读取：
+               //
+               // ObjId:
+               //
+               // 现在读取：
+               //
+               // Data.ReferenceInfo.ObjectID
+               //
+               // JSON Serializer 当前输出：
+               //
+               // "ObjectID": 2
+               // =================================================
+
+               component.objectId =
+                    ReadUInt64(
+                         component.data,
+                         "\"ObjectID\":"
+                    );
+
+
+               // =================================================
+               // Validate Object ID
+               // =================================================
+
+               if (
+                    component.objectId ==
+                    0
+                    )
+               {
+                    std::cerr
+                         << "[SceneSerializer Error] "
+                         << "Component ObjectID not found. "
+                         << "TypeId="
+                         << component.typeId
+                         << std::endl;
+               }
+
+
+               // =================================================
+               // Add
+               // =================================================
+
                result.push_back(
-                    std::move(component)
+                    std::move(
+                         component
+                    )
                );
 
 
@@ -963,12 +1214,13 @@ private:
           }
 
 
-          return text.substr(
-               braceBegin,
-               braceEnd -
-               braceBegin +
-               1
-          );
+          return
+               text.substr(
+                    braceBegin,
+                    braceEnd -
+                    braceBegin +
+                    1
+               );
      }
 
 
@@ -999,6 +1251,10 @@ private:
                key.size();
 
 
+          // =====================================================
+          // Skip Whitespace
+          // =====================================================
+
           while (
                pos < text.size() &&
                std::isspace(
@@ -1011,6 +1267,10 @@ private:
                ++pos;
           }
 
+
+          // =====================================================
+          // Read Number
+          // =====================================================
 
           size_t end =
                pos;
@@ -1029,16 +1289,22 @@ private:
           }
 
 
-          if (end == pos)
-               return 0;
-
-
-          return std::stoull(
-               text.substr(
-                    pos,
-                    end - pos
+          if (
+               end ==
+               pos
                )
-          );
+          {
+               return 0;
+          }
+
+
+          return
+               std::stoull(
+                    text.substr(
+                         pos,
+                         end - pos
+                    )
+               );
      }
 
 
@@ -1069,6 +1335,10 @@ private:
                key.size();
 
 
+          // =====================================================
+          // Skip Leading Whitespace
+          // =====================================================
+
           while (
                pos < text.size() &&
                std::isspace(
@@ -1081,6 +1351,10 @@ private:
                ++pos;
           }
 
+
+          // =====================================================
+          // Find End Of Line
+          // =====================================================
 
           size_t end =
                text.find(
@@ -1106,6 +1380,10 @@ private:
                );
 
 
+          // =====================================================
+          // Remove Trailing Whitespace
+          // =====================================================
+
           while (
                !value.empty() &&
                std::isspace(
@@ -1126,15 +1404,19 @@ private:
      // =========================================================
      // Find Matching Brace
      //
-     // 例如：
+     // Example:
      //
      // {
-     //     Data: {
-     //         x: 1
-     //     }
+     //      Data:
+     //      {
+     //           "ReferenceInfo":
+     //           {
+     //                "ObjectID": 2
+     //           }
+     //      }
      // }
      //
-     // 找到最外层对应的 }
+     // 找到最外层对应的 }。
      // =========================================================
 
      static size_t FindMatchingBrace(
@@ -1172,14 +1454,23 @@ private:
                     text[i];
 
 
+               // =====================================================
+               // Escaped Character
+               // =====================================================
+
                if (escape)
                {
                     escape =
                          false;
 
+
                     continue;
                }
 
+
+               // =====================================================
+               // Escape
+               // =====================================================
 
                if (
                     c == '\\' &&
@@ -1189,14 +1480,22 @@ private:
                     escape =
                          true;
 
+
                     continue;
                }
 
 
-               if (c == '"')
+               // =====================================================
+               // String
+               // =====================================================
+
+               if (
+                    c == '"'
+                    )
                {
                     inString =
                          !inString;
+
 
                     continue;
                }
@@ -1206,16 +1505,27 @@ private:
                     continue;
 
 
-               if (c == '{')
+               // =====================================================
+               // Brace
+               // =====================================================
+
+               if (
+                    c == '{'
+                    )
                {
                     ++depth;
                }
-               else if (c == '}')
+               else if (
+                    c == '}'
+                    )
                {
                     --depth;
 
 
-                    if (depth == 0)
+                    if (
+                         depth ==
+                         0
+                         )
                     {
                          return i;
                     }

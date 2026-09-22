@@ -209,7 +209,8 @@ private:
 // ============================================================
 // Object Display Name
 //
-// 用于 Reference 当前值和 Popup Candidate。
+// 只返回 Object 本身的显示名称。
+// 不包含 ReferenceDescription。
 // ============================================================
 
 inline std::string GetObjectDisplayName(
@@ -321,6 +322,52 @@ inline std::string GetObjectDisplayName(
 
 
 // ============================================================
+// Object Reference Display Name
+//
+// Name (ScopeLevel, ScopeID, ObjectID)
+//
+// Example:
+//
+// Player (0, 0, 1)
+// Material.AssetObject (1, 0, 5)
+// ============================================================
+
+inline std::string GetObjectReferenceDisplayName(
+     EngineObject* object)
+{
+     if (!object)
+          return "null";
+
+
+     std::string name =
+          GetObjectDisplayName(
+               object
+          );
+
+
+     const ReferenceDescription& ref =
+          object->ReferenceInfo;
+
+
+     return
+          name +
+          " (" +
+          std::to_string(
+               ref.ScopeLevel
+          ) +
+          ", " +
+          std::to_string(
+               ref.ScopeID
+          ) +
+          ", " +
+          std::to_string(
+               ref.ObjectID
+          ) +
+          ")";
+}
+
+
+// ============================================================
 // Resolve Current Reference
 // ============================================================
 
@@ -360,6 +407,14 @@ inline EngineObject* GetReferenceObject(
 
 // ============================================================
 // Reference Display Name
+//
+// Current Reference:
+//
+// Name (ScopeLevel, ScopeID, ObjectID)
+//
+// Missing:
+//
+// Missing Reference (ScopeLevel, ScopeID, ObjectID)
 // ============================================================
 
 inline std::string GetReferenceDisplayName(
@@ -379,13 +434,31 @@ inline std::string GetReferenceDisplayName(
           );
 
 
-     // Reference ID 存在，但 Resolve 失败。
+     // ============================================================
+     // Reference ID exists, but Resolve failed
+     // ============================================================
+
      if (!object)
-          return "Missing Reference";
+     {
+          return
+               "Missing Reference (" +
+               std::to_string(
+                    node.reference.ScopeLevel
+               ) +
+               ", " +
+               std::to_string(
+                    node.reference.ScopeID
+               ) +
+               ", " +
+               std::to_string(
+                    node.reference.ObjectID
+               ) +
+               ")";
+     }
 
 
      return
-          GetObjectDisplayName(
+          GetObjectReferenceDisplayName(
                object
           );
 }
@@ -486,24 +559,8 @@ inline void DrawReferenceSelector(
           //
           // 当前拥有这个 Field 的对象。
           //
-          // 例如：
-          //
-          // ReferenceTest 位于 Scene 0
-          //
-          // 那么 owner.ReferenceInfo 就是：
-          //
-          // ScopeLevel = 0
-          // ScopeID    = 0
-          //
-          // ReferenceResolver 会先根据 Suitable()
-          // 找到所有合法来源。
-          //
-          // Scene 0:
-          //      Scene 0 objects
-          //      Assets
-          //
-          // Asset:
-          //      Assets
+          // ReferenceResolver 根据 owner ReferenceInfo
+          // 找到所有合法 Scope 中的对象。
           // ======================================================
 
           std::vector<EngineObject*> candidates =
@@ -531,18 +588,7 @@ inline void DrawReferenceSelector(
 
 
                // =================================================
-               // Reflection 自动生成的类型检查
-               //
-               // Material* field:
-               //
-               // Material -> true
-               // Renderer -> false
-               //
-               // Component* field:
-               //
-               // Renderer   -> true
-               // Transform  -> true
-               // PointLight -> true
+               // Reflection Generated Runtime Type Check
                // =================================================
 
                if (
@@ -569,24 +615,26 @@ inline void DrawReferenceSelector(
 
                // =================================================
                // Display Name
+               //
+               // Name (ScopeLevel, ScopeID, ObjectID)
                // =================================================
 
                std::string candidateName =
-                    GetObjectDisplayName(
+                    GetObjectReferenceDisplayName(
                          candidate
                     );
 
 
                // =================================================
-               // 同名对象避免 ImGui ID 冲突
+               // Unique ImGui ID
                //
-               // 显示：
+               // Visible:
                //
-               // Cube
+               // Player (0, 0, 5)
                //
-               // ImGui Internal ID:
+               // Internal:
                //
-               // Cube##ReferenceCandidate_5
+               // ##ReferenceCandidate_0_0_5
                // =================================================
 
                std::string selectableName =
@@ -643,10 +691,7 @@ inline void DrawReferenceSelector(
                     )
                {
                     // =============================================
-                    // 再检查一次。
-                    //
-                    // 理论上前面已经检查过，
-                    // 这里属于安全保护。
+                    // Safety Check
                     // =============================================
 
                     if (
@@ -686,8 +731,6 @@ inline void DrawReferenceSelector(
 
 // ============================================================
 // Default Reflection Draw
-//
-// 多了一个 owner 参数。
 //
 // owner 用来决定 Reference Field 当前处于什么 Scope。
 // ============================================================
