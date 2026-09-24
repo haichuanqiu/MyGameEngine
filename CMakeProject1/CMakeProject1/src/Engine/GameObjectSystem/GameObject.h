@@ -21,7 +21,6 @@ class Renderer;
 class Component : public EngineObject
 {
 public:
-
      virtual ~Component() = default;
 
      GameObject* gameObject = nullptr;
@@ -45,12 +44,12 @@ REFLECT_BASE(
 class GameObject : public EngineObject
 {
 public:
-
      GameObject();
 
      ~GameObject()
      {
           ClearComponents();
+          OnComponentAdded.UnsubscribeAll();
      }
 
      GameObject(const GameObject&) = delete;
@@ -150,6 +149,7 @@ public:
 
      Renderer* renderer =
           nullptr;
+     bool enabled=true;
      void ClearComponents()
      {
           for (auto& component : m_Components)

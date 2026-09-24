@@ -3,7 +3,7 @@
 static bool s_AssetInspectorRegistered = []()
      {
           CustomInspectorFactory::Instance().Register<Asset>(
-               [](Asset& asset)
+               [](Asset& asset)-> bool
                {
                     // ==========================================
                     // 默认 Reflection Inspector
@@ -25,6 +25,7 @@ static bool s_AssetInspectorRegistered = []()
                     {
                          AssetManager::Instance().Save<Asset>(asset.ReferenceInfo.ObjectID);
                     }
+                    return true;
                }
           );
           

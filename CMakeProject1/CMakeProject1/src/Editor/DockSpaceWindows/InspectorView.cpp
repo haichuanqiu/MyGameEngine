@@ -14,8 +14,14 @@ void InspectorView::Draw()
           return;
      }
 
-     m_Inspector->Draw();
-
+    
+     if (!m_Inspector->Draw())
+     {
+          ClearTarget();
+          std::cout
+               << "change target"
+               << std::endl;
+     }
      ImGui::End();
 }
 

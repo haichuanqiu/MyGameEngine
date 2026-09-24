@@ -11,32 +11,18 @@ class Scene
 {
 public:
 
-     // ============================================================
-     // Scene
-     // ============================================================
-
      Scene() = default;
      std::string filePath;
-
-     // ============================================================
-     // Scene Index
-     // ============================================================
-
      int sceneIndex = 0;
+     void ClearScene()
+     {
 
+          m_Objects.clear();
 
-     // ============================================================
-     // Add GameObject
-     // ============================================================
-    void ClearScene()
-{
+          m_GameObjects.clear();
 
-    m_Objects.clear();
-
-    m_GameObjects.clear();
-
-    m_NextObjectID = 1;
-}
+          m_NextObjectID = 1;
+     }
      GameObject& AddGameObject()
      {
           auto gameObject = std::make_unique<GameObject>();
@@ -49,6 +35,123 @@ public:
 
           return *ptr;
      }
+     
+     bool DeleteGameObject(int objectID)
+     {
+          auto it = std::find_if(
+               m_GameObjects.begin(),
+               m_GameObjects.end(),
+
+               [objectID](
+                    const std::unique_ptr<GameObject>& gameObject)
+               {
+                    return gameObject &&
+                         gameObject->ReferenceInfo.ObjectID
+                         == objectID;
+               }
+          );
+
+
+          if (it == m_GameObjects.end())
+               return false;
+
+
+          GameObject* gameObject =
+               it->get();
+
+
+          // ============================================================
+          // Unregister Components
+          // ============================================================
+
+          for (const auto& component :
+               gameObject->GetComponents())
+          {
+               if (!component)
+                    continue;
+
+
+               TryRemoveRenderer(
+                    component.get()
+               );
+
+
+               m_Objects.erase(
+                    component->ReferenceInfo.ObjectID
+               );
+          }
+
+
+          // ============================================================
+          // Unregister GameObject
+          // ============================================================
+
+          m_Objects.erase(
+               gameObject->ReferenceInfo.ObjectID
+          );
+
+
+          // ============================================================
+          // Destroy
+          // ============================================================
+
+          m_GameObjects.erase(it);
+
+
+          return true;
+     }
+
+
+public:
+
+     const std::vector<std::unique_ptr<GameObject>>& GetAllGameObjects() const
+     {
+          return m_GameObjects;
+     }
+
+
+
+     EngineObject* getObject(int objectID)
+     {
+          auto it = m_Objects.find(objectID);
+
+          if (it == m_Objects.end())
+               return nullptr;
+          if(it->second->waitingToDestroy){
+               return nullptr;
+          }
+          return it->second;
+     }
+
+
+    
+     template<typename T>
+     std::vector<T*> FindAllOfType()
+     {
+          std::vector<T*> result;
+
+          for (auto& [objectID, object] : m_Objects)
+          {
+               if (!object)
+                    continue;
+
+               T* typedObject =
+                    dynamic_cast<T*>(object);
+
+               if (typedObject)
+               {
+                    result.push_back(
+                         typedObject
+                    );
+               }
+          }
+
+          return result;
+     }
+public:
+       // ============================================================
+       // for scene serialization
+       // ============================================================
 
      void AddGameObject(
           std::unique_ptr<GameObject> gameObject,
@@ -63,9 +166,6 @@ public:
                     << std::endl;
 
                return;
-          }
-          if (m_NextObjectID < objectID) {
-               m_NextObjectID = objectID;
           }
 
           // ============================================================
@@ -98,6 +198,9 @@ public:
           gameObject->ReferenceInfo.ScopeID = scopeID;
           gameObject->ReferenceInfo.ObjectID = objectID;
 
+          if (m_NextObjectID < objectID) {
+               m_NextObjectID = objectID;
+          }
 
           // ============================================================
           // Register
@@ -116,7 +219,7 @@ public:
           m_GameObjects.push_back(
                std::move(gameObject)
           );
-   
+
      }
 
      void AddComponent(
@@ -132,10 +235,6 @@ public:
                     << std::endl;
 
                return;
-          }
-
-          if (m_NextObjectID < objectID) {
-               m_NextObjectID = objectID;
           }
           // ============================================================
           // Check Duplicate ObjectID
@@ -167,6 +266,9 @@ public:
           component->ReferenceInfo.ScopeID = scopeID;
           component->ReferenceInfo.ObjectID = objectID;
 
+          if (m_NextObjectID < objectID) {
+               m_NextObjectID = objectID;
+          }
 
           // ============================================================
           // Register
@@ -176,83 +278,30 @@ public:
           TryAddRenderer(component);
      }
 
+
+
+private:
      void TryAddRenderer(Component* component);
-     // ============================================================
-     // Add Existing GameObject
-     // ============================================================
+     void TryRemoveRenderer(Component* component);
+     uint64_t OnComponentAdded(Component* component) {
+          if (!component)
+               return 0;
 
-     void AddGameObject(std::unique_ptr<GameObject> gameObject)
-     {
-          if (!gameObject)
-               return;
 
-          RegisterGameObject(gameObject.get());
 
-          m_GameObjects.push_back(std::move(gameObject));
+
+          component->ReferenceInfo.ScopeLevel = 0;
+          component->ReferenceInfo.ScopeID = sceneIndex;
+          component->ReferenceInfo.ObjectID = m_NextObjectID++;
+
+          uint64_t objectID = component->ReferenceInfo.ObjectID;
+
+          m_Objects[objectID] = component;
+
+          TryAddRenderer(component);
+
+          return objectID;
      }
-
-
-     // ============================================================
-     // Get GameObject By Vector Index
-     // ============================================================
-
-     GameObject& GetGameObject(size_t index)
-     {
-
-          return *m_GameObjects.at(index);
-
-     }
-
-
-     const GameObject& GetGameObject(size_t index) const
-     {
-          return *m_GameObjects.at(index);
-     }
-
-
-     // ============================================================
-     // Get All GameObjects
-     // ============================================================
-
-     const std::vector<std::unique_ptr<GameObject>>& GetAllGameObjects() const
-     {
-          return m_GameObjects;
-     }
-
-
-     // ============================================================
-     // Get Object Of Type
-     //
-     // ObjectID -> EngineObject -> T
-     // ============================================================
-
-     template<typename T>
-     T* GetObjectOfType(int objectID)
-     {
-          auto it = m_Objects.find(objectID);
-
-          if (it == m_Objects.end())
-               return nullptr;
-
-          return dynamic_cast<T*>(it->second);
-     }
-
-
-     // ============================================================
-     // Get Object
-     // ============================================================
-
-     EngineObject* getObject(int objectID)
-     {
-          auto it = m_Objects.find(objectID);
-
-          if (it == m_Objects.end())
-               return nullptr;
-
-          return it->second;
-     }
-
-
      uint64_t RegisterGameObject(GameObject* gameObject)
      {
           if (!gameObject)
@@ -288,81 +337,33 @@ public:
           // Listen For Future Components
           // =====================================================
           RegisterFutureComponent(gameObject);
-         
+
 
           return objectID;
      }
+
+     template<typename T>
+     T* GetObjectOfType(int objectID)
+     {
+          auto it = m_Objects.find(objectID);
+
+          if (it == m_Objects.end())
+               return nullptr;
+
+          return dynamic_cast<T*>(it->second);
+     }
+
      void RegisterFutureComponent(GameObject* gameObject) {
-          
+
           gameObject->OnComponentAdded.Subscribe(
                [this](Component* component)
                {
                     OnComponentAdded(component);
-     
+
                }
           );
 
      }
-
-     // ============================================================
-     // Component Added
-     // ============================================================
-
-     uint64_t OnComponentAdded(Component* component) {
-          if (!component)
-               return 0;
-
-
-
-
-          component->ReferenceInfo.ScopeLevel = 0;
-          component->ReferenceInfo.ScopeID = sceneIndex;
-          component->ReferenceInfo.ObjectID = m_NextObjectID++;
-
-          uint64_t objectID = component->ReferenceInfo.ObjectID;
-
-          m_Objects[objectID] = component;
-
-          std::cout
-               << "Register Component"
-               << component->ReferenceInfo.ScopeLevel
-               << component->ReferenceInfo.ScopeID 
-
-               << component->ReferenceInfo.ObjectID
-
-               << std::endl;
-         TryAddRenderer(component);
-
-          return objectID;
-     }
-    
-
-     template<typename T>
-     std::vector<T*> FindAllOfType()
-     {
-          std::vector<T*> result;
-
-          for (auto& [objectID, object] : m_Objects)
-          {
-               if (!object)
-                    continue;
-
-               T* typedObject =
-                    dynamic_cast<T*>(object);
-
-               if (typedObject)
-               {
-                    result.push_back(
-                         typedObject
-                    );
-               }
-          }
-
-          return result;
-     }
-
-private:
-
      // ============================================================
      // GameObject Ownership
      // ============================================================
@@ -376,7 +377,7 @@ private:
      // GameObject 和 Component 全部在这里
      // ============================================================
 
-     std::unordered_map<int, EngineObject*> m_Objects;
+     std::unordered_map<uint64_t, EngineObject*> m_Objects;
 
 
      // ============================================================

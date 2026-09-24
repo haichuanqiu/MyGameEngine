@@ -305,6 +305,31 @@ public:
                m_LightUBO
           );
      }
+     bool RemovePointLight(int target)
+     {
+          if (target < 0 ||
+               target >= MaxPointLights)
+          {
+               return false;
+          }
+
+          m_Lights.pointLights[target] =
+               GPUPointLight{};
+
+          UpdateLightRange(
+               offsetof(
+                    GPULightBlock,
+                    pointLights
+               ) +
+               sizeof(GPUPointLight) * target,
+
+               sizeof(GPUPointLight),
+
+               &m_Lights.pointLights[target]
+          );
+
+          return true;
+     }
      int UpdatePointLightData(
           int index,
           const Vector3& position,
@@ -313,14 +338,6 @@ public:
           float range
      )
      {
-          std::cout
-               << "UpdatePointLightData = "
-               << index
-               << ", "
-               << position.x
-               << ", "
-               << intensity
-               << std::endl;
           if (index == -1)
           {
                if (m_Lights.pointLightCount >= MaxPointLights)

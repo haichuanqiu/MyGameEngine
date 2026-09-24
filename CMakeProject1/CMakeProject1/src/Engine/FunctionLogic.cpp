@@ -26,7 +26,7 @@ void PointLight::OnCreatedBySceneLoader() {
      SetDefaultTarget(
           &Engine::Instance().renderSystem
      );
-
+     id=-1;
 
      UpdateLightData(
           Engine::Instance().renderSystem
@@ -47,7 +47,9 @@ void PointLight::OnCreatedBySceneLoader() {
                }
           );
 }
-
+PointLight::~PointLight() {
+     m_target->GetLighting().RemovePointLight(id);
+}
 void PointLight::OnAdded(GameObject* owner)
 {
      if(m_TransformSubscription==-1)
@@ -73,11 +75,35 @@ GameObject::GameObject()
 {
 	transform = AddComponent<Transform>();
 }
-
+void Scene::TryRemoveRenderer(Component* component) {
+     if (Renderer* renderer = dynamic_cast<Renderer*>(component))
+     {
+          Engine::Instance().renderSystem.RemoveRenderer(renderer);
+     }
+}
 
 void Scene::TryAddRenderer(Component* component) {
      if (Renderer* renderer = dynamic_cast<Renderer*>(component))
      {
           Engine::Instance().renderSystem.RegisterRenderer(renderer);
+     }
+}
+
+void EngineObject::DestroyGameObject(GameObject* target) {
+     target->waitingToDestroy = true;
+     Engine::Instance().waitForFrameUpdateQueues.AddToDestoryQueue(target);
+}
+
+void WaitForFrameUpdateQueues::DestoryAllInDestoryStack() {
+     for (auto& gm : destoryStack)
+     {
+          if (!gm)
+               continue;
+          int id = gm->ReferenceInfo.ObjectID;
+          Engine::Instance().currentScene->DeleteGameObject(id);
+          destoryStack.clear();
+          std::cerr
+               << "real destroy"
+               << std::endl;
      }
 }

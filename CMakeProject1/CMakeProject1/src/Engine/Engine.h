@@ -7,6 +7,7 @@
 #include "rendering/VertexDataController.h"
 #include "rendering/RenderSystem.h"
 #include "Profiler/profiler.h"
+#include "WaitForFrameUpdateQueues.h"
 class Engine
 {
 public:
@@ -109,6 +110,17 @@ public:
                     component->Update();
                }
           }
+
+          
+     }
+     void deleteObj() {
+          {
+               ENGINE_PROFILE_SCOPE("Delete GameObject");
+
+
+               waitForFrameUpdateQueues.DestoryAllInDestoryStack();
+               waitForFrameUpdateQueues.ChangeAllEnableStatus();
+          }
      }
 
 
@@ -140,7 +152,7 @@ public:
      OpenGLVertexDataController vertexDataController;
 
      RenderSystem renderSystem;
-
+     WaitForFrameUpdateQueues waitForFrameUpdateQueues;
 
 private:
 

@@ -20,6 +20,17 @@
 
 #include "Engine/GameObjectSystem.h"
 
+#include <typeinfo>
+#include <utility>
+
+
+enum class InspectorDrawResult
+{
+     NotHandled,
+     KeepTarget,
+     ClearTarget
+};
+
 
 // ============================================================
 // Custom Inspector Factory
@@ -36,7 +47,7 @@ private:
           std::function<bool(EngineObject*)>
                canDraw;
 
-          std::function<void(EngineObject*)>
+          std::function<InspectorDrawResult(EngineObject*)>
                draw;
      };
 
@@ -53,11 +64,19 @@ public:
 
      // ============================================================
      // Register
+     //
+     // Custom Inspector:
+     //
+     // true:
+     //     object 仍然有效
+     //
+     // false:
+     //     要求 Inspector 清除当前 target
      // ============================================================
 
      template<typename T>
      void Register(
-          std::function<void(T&)> drawFn)
+          std::function<bool(T&)> drawFn)
      {
           static_assert(
                std::is_base_of_v<EngineObject, T>,
@@ -67,38 +86,79 @@ public:
 
           InspectorEntry newEntry
           {
+               // =================================================
+               // Type
+               // =================================================
+
                std::type_index(
                     typeid(T)
                ),
 
-               [](EngineObject* object) -> bool
-               {
-                    if (!object)
-                         return false;
 
-                    return
-                         dynamic_cast<T*>(
-                              object
-                         ) != nullptr;
-               },
+                    // =================================================
+                    // Can Draw
+                    // =================================================
 
-               [drawFn](EngineObject* object)
-               {
-                    if (!object)
-                         return;
+                    [](EngineObject* object) -> bool
+                    {
+                         if (!object)
+                              return false;
 
-                    T* castedObject =
-                         dynamic_cast<T*>(
-                              object
-                         );
 
-                    if (!castedObject)
-                         return;
+                         return
+                              dynamic_cast<T*>(
+                                   object
+                              ) != nullptr;
+                    },
 
-                    drawFn(
-                         *castedObject
-                    );
-               }
+
+                    // =================================================
+                    // Draw
+                    // =================================================
+
+                    [drawFn](EngineObject* object)
+                         -> InspectorDrawResult
+                    {
+                         if (!object)
+                         {
+                              return
+                                   InspectorDrawResult::
+                                   ClearTarget;
+                         }
+
+
+                         T* castedObject =
+                              dynamic_cast<T*>(
+                                   object
+                              );
+
+
+                         if (!castedObject)
+                         {
+                              return
+                                   InspectorDrawResult::
+                                   NotHandled;
+                         }
+
+
+                         const bool keepTarget =
+                              drawFn(
+                                   *castedObject
+                              );
+
+
+                         if (!keepTarget)
+                         {
+                              return
+                                   InspectorDrawResult::
+                                   ClearTarget;
+                         }
+
+
+                         return
+                              InspectorDrawResult::
+                              KeepTarget;
+                    }
           };
 
 
@@ -141,11 +201,15 @@ public:
      // Create And Draw
      // ============================================================
 
-     bool CreateAndDraw(
+     InspectorDrawResult CreateAndDraw(
           EngineObject* object)
      {
           if (!object)
-               return false;
+          {
+               return
+                    InspectorDrawResult::
+                    ClearTarget;
+          }
 
 
           const std::type_index runtimeType(
@@ -164,11 +228,10 @@ public:
                     runtimeType
                     )
                {
-                    entry.draw(
-                         object
-                    );
-
-                    return true;
+                    return
+                         entry.draw(
+                              object
+                         );
                }
           }
 
@@ -185,20 +248,28 @@ public:
                     )
                     )
                {
-                    entry.draw(
-                         object
-                    );
-
-                    return true;
+                    return
+                         entry.draw(
+                              object
+                         );
                }
           }
 
 
-          return false;
+          // ======================================================
+          // No Custom Inspector
+          // ======================================================
+
+          return
+               InspectorDrawResult::
+               NotHandled;
      }
 
 
 private:
+
+     CustomInspectorFactory() = default;
+
 
      std::vector<
           InspectorEntry
@@ -208,18 +279,11 @@ private:
 
 // ============================================================
 // Object Display Name
-//
-// 只返回 Object 本身的显示名称。
-// 不包含 ReferenceDescription。
 // ============================================================
 
 inline std::string GetObjectDisplayName(
      EngineObject* object)
 {
-     // ============================================================
-     // Null
-     // ============================================================
-
      if (!object)
           return "null";
 
@@ -313,23 +377,12 @@ inline std::string GetObjectDisplayName(
      }
 
 
-     // ============================================================
-     // Unknown EngineObject
-     // ============================================================
-
      return "Unknown Object";
 }
 
 
 // ============================================================
 // Object Reference Display Name
-//
-// Name (ScopeLevel, ScopeID, ObjectID)
-//
-// Example:
-//
-// Player (0, 0, 1)
-// Material.AssetObject (1, 0, 5)
 // ============================================================
 
 inline std::string GetObjectReferenceDisplayName(
@@ -407,14 +460,6 @@ inline EngineObject* GetReferenceObject(
 
 // ============================================================
 // Reference Display Name
-//
-// Current Reference:
-//
-// Name (ScopeLevel, ScopeID, ObjectID)
-//
-// Missing:
-//
-// Missing Reference (ScopeLevel, ScopeID, ObjectID)
 // ============================================================
 
 inline std::string GetReferenceDisplayName(
@@ -434,28 +479,15 @@ inline std::string GetReferenceDisplayName(
           );
 
 
-     // ============================================================
-     // Reference ID exists, but Resolve failed
-     // ============================================================
-
      if (!object)
      {
+          node.setReference(nullptr);
+     
           return
-               "Missing Reference (" +
-               std::to_string(
-                    node.reference.ScopeLevel
-               ) +
-               ", " +
-               std::to_string(
-                    node.reference.ScopeID
-               ) +
-               ", " +
-               std::to_string(
-                    node.reference.ObjectID
-               ) +
-               ")";
+               "Missing Reference";
+          
      }
-
+  
 
      return
           GetObjectReferenceDisplayName(
@@ -476,19 +508,11 @@ inline void DrawReferenceSelector(
           return;
 
 
-     // ============================================================
-     // Current Display Name
-     // ============================================================
-
      std::string displayName =
           GetReferenceDisplayName(
                node
           );
 
-
-     // ============================================================
-     // Field Name
-     // ============================================================
 
      ImGui::Text(
           "%s",
@@ -498,10 +522,6 @@ inline void DrawReferenceSelector(
 
      ImGui::SameLine();
 
-
-     // ============================================================
-     // Current Reference Button
-     // ============================================================
 
      if (
           ImGui::Button(
@@ -514,10 +534,6 @@ inline void DrawReferenceSelector(
           );
      }
 
-
-     // ============================================================
-     // Popup
-     // ============================================================
 
      if (
           ImGui::BeginPopup(
@@ -553,14 +569,7 @@ inline void DrawReferenceSelector(
 
 
           // ======================================================
-          // Find All Scope-Compatible EngineObjects
-          //
-          // owner:
-          //
-          // 当前拥有这个 Field 的对象。
-          //
-          // ReferenceResolver 根据 owner ReferenceInfo
-          // 找到所有合法 Scope 中的对象。
+          // Candidates
           // ======================================================
 
           std::vector<EngineObject*> candidates =
@@ -574,10 +583,6 @@ inline void DrawReferenceSelector(
                false;
 
 
-          // ======================================================
-          // Filter By REF_FIELD Runtime Type
-          // ======================================================
-
           for (
                EngineObject* candidate :
                candidates
@@ -586,10 +591,6 @@ inline void DrawReferenceSelector(
                if (!candidate)
                     continue;
 
-
-               // =================================================
-               // Reflection Generated Runtime Type Check
-               // =================================================
 
                if (
                     !node.canSetReference
@@ -613,29 +614,11 @@ inline void DrawReferenceSelector(
                     true;
 
 
-               // =================================================
-               // Display Name
-               //
-               // Name (ScopeLevel, ScopeID, ObjectID)
-               // =================================================
-
                std::string candidateName =
                     GetObjectReferenceDisplayName(
                          candidate
                     );
 
-
-               // =================================================
-               // Unique ImGui ID
-               //
-               // Visible:
-               //
-               // Player (0, 0, 5)
-               //
-               // Internal:
-               //
-               // ##ReferenceCandidate_0_0_5
-               // =================================================
 
                std::string selectableName =
                     candidateName +
@@ -659,29 +642,24 @@ inline void DrawReferenceSelector(
                     );
 
 
-               // =================================================
-               // Is Current
-               // =================================================
-
                bool selected =
                     !node.reference.isNull &&
+
                     node.reference.ScopeLevel ==
                     candidate
                     ->ReferenceInfo
                     .ScopeLevel &&
+
                     node.reference.ScopeID ==
                     candidate
                     ->ReferenceInfo
                     .ScopeID &&
+
                     node.reference.ObjectID ==
                     candidate
                     ->ReferenceInfo
                     .ObjectID;
 
-
-               // =================================================
-               // Select
-               // =================================================
 
                if (
                     ImGui::Selectable(
@@ -690,20 +668,23 @@ inline void DrawReferenceSelector(
                     )
                     )
                {
-                    // =============================================
-                    // Safety Check
-                    // =============================================
-
                     if (
                          node.canSetReference(
                               candidate
-                         ) &&
+                         )&&
+                         candidate 
+                         &&
                          node.setReference
                          )
                     {
-                         node.setReference(
-                              candidate
-                         );
+                         if (candidate->waitingToDestroy)
+                         {
+                              node.setReference(nullptr);
+                         }
+                         else
+                         {
+                              node.setReference(candidate);
+                         }
                     }
 
 
@@ -711,10 +692,6 @@ inline void DrawReferenceSelector(
                }
           }
 
-
-          // ======================================================
-          // No Candidate
-          // ======================================================
 
           if (!foundCandidate)
           {
@@ -731,8 +708,6 @@ inline void DrawReferenceSelector(
 
 // ============================================================
 // Default Reflection Draw
-//
-// owner 用来决定 Reference Field 当前处于什么 Scope。
 // ============================================================
 
 inline void DrawPropertyNode(
@@ -958,10 +933,6 @@ inline void DrawDefaultInspector(
           return;
 
 
-     // ============================================================
-     // Runtime Type
-     // ============================================================
-
      const std::type_info& typeInfo =
           typeid(*object);
 
@@ -985,19 +956,11 @@ inline void DrawDefaultInspector(
      }
 
 
-     // ============================================================
-     // Title
-     // ============================================================
-
      ImGui::Text(
           "%s",
           type->name
      );
 
-
-     // ============================================================
-     // Property Node
-     // ============================================================
 
      PropertyNode node;
 
@@ -1017,20 +980,12 @@ inline void DrawDefaultInspector(
      node.children.clear();
 
 
-     // ============================================================
-     // Build Fields
-     // ============================================================
-
      BuildTypeFields(
           node,
           type,
           object
      );
 
-
-     // ============================================================
-     // Draw
-     // ============================================================
 
      for (
           const auto& child :
@@ -1069,7 +1024,17 @@ public:
      }
 
 
-     void Draw();
+     // ============================================================
+     // Draw
+     //
+     // true:
+     //     target 可以继续保留
+     //
+     // false:
+     //     调用者应该把自己的 target 设置成 nullptr
+     // ============================================================
+
+     bool Draw();
 
 
 private:
@@ -1093,14 +1058,14 @@ private:
 // ClassInspector::Draw
 // ============================================================
 
-inline void ClassInspector::Draw()
+inline bool ClassInspector::Draw()
 {
      if (
           !m_object ||
           !m_typeInfo
           )
      {
-          return;
+          return false;
      }
 
 
@@ -1108,20 +1073,48 @@ inline void ClassInspector::Draw()
      // Custom Inspector
      // ============================================================
 
-     if (
+     InspectorDrawResult customResult =
           CustomInspectorFactory::Instance()
           .CreateAndDraw(
                m_object
-          )
+          );
+
+
+     // ============================================================
+     // Custom Inspector requests target clear
+     // ============================================================
+
+     if (
+          customResult ==
+          InspectorDrawResult::
+          ClearTarget
           )
      {
-          return;
+          m_object =
+               nullptr;
+
+
+          m_typeInfo =
+               nullptr;
+
+
+          return false;
      }
 
 
      // ============================================================
-     // Reflection Type
+     // Custom Inspector handled this object
      // ============================================================
+
+     if (
+          customResult ==
+          InspectorDrawResult::
+          KeepTarget
+          )
+     {
+          return true;
+     }
+
 
      const TypeInfo* type =
           ReflectionRegistry::Instance()
@@ -1138,7 +1131,7 @@ inline void ClassInspector::Draw()
           );
 
 
-          return;
+          return true;
      }
 
 
@@ -1197,4 +1190,7 @@ inline void ClassInspector::Draw()
                m_object
           );
      }
+
+
+     return true;
 }

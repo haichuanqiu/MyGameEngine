@@ -32,6 +32,7 @@ public:
 
                m_Engine->Update();
           }
+          
           {
                ENGINE_PROFILE_SCOPE("Scene View Render");
 
@@ -43,6 +44,16 @@ public:
 
                mylayout.Draw();
           }
+          if (EngineRunning)
+          {
+
+               m_Engine->deleteObj();
+          } else {
+               ENGINE_PROFILE_SCOPE("Editor Delete GameObject");
+               m_Engine->waitForFrameUpdateQueues.DestoryAllInDestoryStack();
+               m_Engine->waitForFrameUpdateQueues.ChangeAllEnableStatus();
+          }
+         
           {
                ENGINE_PROFILE_SCOPE("Swap Buffers");
 

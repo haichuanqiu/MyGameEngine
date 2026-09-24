@@ -25,6 +25,7 @@ public:
                     "Object",
                     object
                );
+
      }
 
      void ClearTarget()

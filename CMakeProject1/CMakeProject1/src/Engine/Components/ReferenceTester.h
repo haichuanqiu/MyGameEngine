@@ -12,10 +12,11 @@ public:
 	bool testBool=false;
 	std::string testString="";
 	void Update() {
-		
-		auto s=ts->GetPosition();
-		Vector3 vec(s.x + 1, s.y, s.z);
-		ts->SetPosition(vec);
+		if (ts) {
+			auto s = ts->GetPosition();
+			Vector3 vec(s.x + 1, s.y, s.z);
+			ts->SetPosition(vec);
+		}
 	}
 
 private:
@@ -33,3 +34,33 @@ REFLECT_BASE(
 	FIELD(ReferenceTest, testBool)
 	)
 REGISTER_COMPONENT(ReferenceTest)
+class DeleteTest : public Component
+{
+public:
+	GameObject* toDelete;
+	int targetFrame=10;
+	int currentFrame;
+	void Update() {
+
+		currentFrame+=1;
+		if (targetFrame== currentFrame) {
+			
+			DestroyGameObject(toDelete);
+			std::cout
+				<< "Call DestroyGameObject"
+				<< std::endl;
+		}
+	}
+
+private:
+};
+REFLECT_BASE(
+	DeleteTest,
+	Component,
+	REF_FIELD(DeleteTest, toDelete),
+	FIELD(DeleteTest, targetFrame),
+	FIELD(DeleteTest, currentFrame)
+
+)
+REGISTER_COMPONENT(DeleteTest)
+

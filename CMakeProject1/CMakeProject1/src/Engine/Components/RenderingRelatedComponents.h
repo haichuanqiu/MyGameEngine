@@ -41,7 +41,7 @@ public:
 	void SetDefaultTarget(RenderSystem* target) {
 		m_target = target;
 	}
-
+	~PointLight();
 	void OnAdded(GameObject* owner) override;
 	void OnTransformChanged(const Transform& transform)
 	{

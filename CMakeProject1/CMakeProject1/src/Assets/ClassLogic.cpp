@@ -9,8 +9,13 @@ EngineObject* ReferenceResolver::GetItem(ReferenceDescription refDes) {
 
 	}
 	else if (refDes.ScopeLevel == 0) {
+          auto obj= Engine::Instance().GetScene(refDes.ScopeID)->getObject(refDes.ObjectID);
+
+          if (!obj|| obj->waitingToDestroy) {
+               return nullptr;
+          }
 		return Engine::Instance().GetScene(refDes.ScopeID)->getObject(refDes.ObjectID);
-		//return nullptr;
+          
 	}
 	return nullptr;
 }
