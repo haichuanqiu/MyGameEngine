@@ -7,7 +7,7 @@
 #include "Testing/tryLoadScene.h"
 #include "Testing/OnSceneCreated.h"
 #include "Editor/EditorApplication.h"
-
+#include "Profiler/profiler.h"
 #include "Assets/Material.h"
 #include "Assets/AssetManager.h"
 #include "rendering/ShaderManager.h"
@@ -27,10 +27,13 @@ int main()
           editor.EditorUpdate();
           double frameEnd = glfwGetTime();
           double elapsed = frameEnd - frameStart;
+          ENGINE_PROFILE_SCOPE("Sleep till next frame");
+          {
           if (elapsed < targetFrameTime)
           {
                double sleepTime = targetFrameTime - elapsed;
                std::this_thread::sleep_for(std::chrono::duration<double>(sleepTime));
+          }
           }
      }
 

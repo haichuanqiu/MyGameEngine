@@ -25,7 +25,7 @@ public:
      Event<GameObject*> OnGameObjectClicked;
 
      Event<Scene*> OnSaveClicked;
-
+     Event<Vector2> OnRightClickedEmptySpace;
 
 private:
 

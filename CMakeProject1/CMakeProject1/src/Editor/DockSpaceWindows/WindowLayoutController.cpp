@@ -12,7 +12,8 @@ WindowLayoutController::WindowLayoutController(GLFWwindow* target)
       m_InspectorView(),
 	m_AssetView(),
 	m_ProfilerView(),
-	m_ToolBar()
+	m_ToolBar(),
+	m_ContextMenu()
 {
     IMGUI_CHECKVERSION();
 
@@ -26,6 +27,8 @@ WindowLayoutController::WindowLayoutController(GLFWwindow* target)
 
     ImGui_ImplGlfw_InitForOpenGL(target, true);
     ImGui_ImplOpenGL3_Init("#version 330");
+
+	m_HierarchyView.OnRightClickedEmptySpace.Subscribe([&](Vector2 target){m_ContextMenu.Open(ContextMenu::OpenType::Hierarchy, target);});
 
 }
 
@@ -44,6 +47,7 @@ void WindowLayoutController::Draw() {
 	m_AssetView.Draw();
 	m_ProfilerView.Draw();
 	m_ToolBar.Draw();
+	m_ContextMenu.Draw();
 	ImGui::Render();
 	ImGui::UpdatePlatformWindows();
 	ImGui::RenderPlatformWindowsDefault();

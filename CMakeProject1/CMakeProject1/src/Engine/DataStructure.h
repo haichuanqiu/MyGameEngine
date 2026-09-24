@@ -28,6 +28,18 @@ REFLECT(
 	FIELD(Vector2Int, x),
 	FIELD(Vector2Int, y),
 )
+class Vector2
+{
+public:
+	float x = 0;
+	float y = 0;
+};
+REFLECT(
+	Vector2,
+
+	FIELD(Vector2, x),
+	FIELD(Vector2, y),
+	)
 class Quaternion
 {
 	public:

@@ -64,7 +64,9 @@ public:
 
                return;
           }
-
+          if (m_NextObjectID < objectID) {
+               m_NextObjectID = objectID;
+          }
 
           // ============================================================
           // Check Duplicate ObjectID
@@ -105,14 +107,16 @@ public:
 
           m_Objects[objectID] = ptr;
 
-
-          // ============================================================
-          // Scene Owns GameObject
-          // ============================================================
+          std::cout
+               << "Register"
+               << gameObject.get()->name
+               << std::endl;
+          RegisterFutureComponent(gameObject.get());
 
           m_GameObjects.push_back(
                std::move(gameObject)
           );
+   
      }
 
      void AddComponent(
@@ -130,7 +134,9 @@ public:
                return;
           }
 
-
+          if (m_NextObjectID < objectID) {
+               m_NextObjectID = objectID;
+          }
           // ============================================================
           // Check Duplicate ObjectID
           // ============================================================
@@ -247,12 +253,6 @@ public:
      }
 
 
-     // ============================================================
-     // Register GameObject
-     //
-     // GameObject 和 Component 使用同一个 ObjectID Pool
-     // ============================================================
-
      uint64_t RegisterGameObject(GameObject* gameObject)
      {
           if (!gameObject)
@@ -287,18 +287,22 @@ public:
           // =====================================================
           // Listen For Future Components
           // =====================================================
+          RegisterFutureComponent(gameObject);
+         
 
+          return objectID;
+     }
+     void RegisterFutureComponent(GameObject* gameObject) {
+          
           gameObject->OnComponentAdded.Subscribe(
                [this](Component* component)
                {
                     OnComponentAdded(component);
+     
                }
           );
 
-
-          return objectID;
      }
-
 
      // ============================================================
      // Component Added
@@ -309,9 +313,7 @@ public:
                return 0;
 
 
-          // =====================================================
-          // Component Reference Info
-          // =====================================================
+
 
           component->ReferenceInfo.ScopeLevel = 0;
           component->ReferenceInfo.ScopeID = sceneIndex;
@@ -320,6 +322,15 @@ public:
           uint64_t objectID = component->ReferenceInfo.ObjectID;
 
           m_Objects[objectID] = component;
+
+          std::cout
+               << "Register Component"
+               << component->ReferenceInfo.ScopeLevel
+               << component->ReferenceInfo.ScopeID 
+
+               << component->ReferenceInfo.ObjectID
+
+               << std::endl;
          TryAddRenderer(component);
 
           return objectID;

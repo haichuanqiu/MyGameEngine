@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "ContextMenu/ContextMenu.h"
 class WindowLayoutController
 {
 public:
@@ -24,6 +25,7 @@ public:
 	AssetView m_AssetView;
 	ProfilerView m_ProfilerView;
 	ToolBar m_ToolBar;
+	ContextMenu m_ContextMenu;
 private:
 
 }; 

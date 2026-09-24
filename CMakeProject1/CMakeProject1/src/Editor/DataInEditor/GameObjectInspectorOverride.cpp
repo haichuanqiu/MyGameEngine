@@ -65,24 +65,54 @@ static bool s_GameObjectInspectorRegistered = []()
                     // ==========================================
                     // GameObject Name
                     // ==========================================
-                    ImGui::Text("Name: %s", gameObject.name.c_str());
+
+                    ImGui::Text("Name");
+                    ImGui::SameLine();
+
+                    ImGui::SetNextItemWidth(-1.0f);
+
+                    char nameBuffer[256];
+
+                    strncpy_s(
+                         nameBuffer,
+                         sizeof(nameBuffer),
+                         gameObject.name.c_str(),
+                         _TRUNCATE
+                    );
+
+                    if (ImGui::InputText(
+                         "##GameObjectName",
+                         nameBuffer,
+                         sizeof(nameBuffer)))
+                    {
+                         gameObject.name = nameBuffer;
+                    }
 
                     ImGui::Separator();
+
 
                     // ==========================================
                     // Components
                     // ==========================================
+
                     auto& components =
                          gameObject.GetComponents();
 
-                    for (size_t i = 0; i < components.size(); ++i)
+                    for (size_t i = 0;
+                         i < components.size();
+                         ++i)
                     {
-                         auto& component = components[i];
+                         auto& component =
+                              components[i];
 
                          if (!component)
                               continue;
 
-                         ImGui::PushID(static_cast<int>(i));
+
+                         ImGui::PushID(
+                              static_cast<int>(i)
+                         );
+
 
                          ClassInspector inspector(
                               "Component",
@@ -91,9 +121,41 @@ static bool s_GameObjectInspectorRegistered = []()
 
                          inspector.Draw();
 
+
                          ImGui::PopID();
 
                          ImGui::Separator();
+                    }
+                    if (ImGui::Button("Add Component"))
+                    {
+                         ImGui::OpenPopup(
+                              "AddComponentPopup"
+                         );
+                    }
+
+
+                    if (ImGui::BeginPopup(
+                         "AddComponentPopup"))
+                    {
+                         auto& registry =
+                              ComponentRegistry::Instance();
+
+
+                         for (const auto& [typeId, info] :
+                              registry.GetAll())
+                         {
+                              if (ImGui::MenuItem(
+                                   info.name.c_str()))
+                              {
+                                   registry.Create(
+                                        typeId,
+                                        gameObject
+                                   );
+                              }
+                         }
+
+
+                         ImGui::EndPopup();
                     }
                }
           );

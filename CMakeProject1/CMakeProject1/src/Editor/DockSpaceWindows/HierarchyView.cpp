@@ -8,7 +8,21 @@ void HierarchyView::Draw()
 {
      ImGui::Begin("Hierarchy");
 
+     if (ImGui::IsWindowHovered() &&
+          ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+     {
+          ImVec2 mousePos =
+               ImGui::GetMousePos();
 
+          ImVec2 windowPos =
+               ImGui::GetWindowPos();
+
+          ImVec2 localPos(
+               mousePos.x - windowPos.x,
+               mousePos.y - windowPos.y
+          );
+          OnRightClickedEmptySpace.Invoke(Vector2(localPos.x, localPos.y));
+     }
      // ============================================================
      // Save Button
      // ============================================================
