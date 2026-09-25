@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
+#include "EngineObjectHandle.h"
 
 // ============================================================
 // Forward Declaration
@@ -1391,7 +1391,87 @@ FieldInfo MakeReferenceField(
      return field;
 }
 
+template<typename Class, typename T>
+FieldInfo MakeHandleReferenceField(
+     const char* name,
+     EngineObjectHandle<T> Class::* member)
+{
+     FieldInfo field;
 
+     field.name = name;
+     field.type = FieldType::Reference;
+
+     field.build =
+          [member, name](void* object)
+          {
+               Class* obj = static_cast<Class*>(object);
+
+               EngineObjectHandle<T>& handle = obj->*member;
+
+               PropertyNode node;
+
+               node.name = name;
+               node.type = FieldType::Reference;
+               node.typeName = typeid(T).name();
+               node.referenceType = &typeid(T);
+
+               const ReferenceDescription& ref =
+                    handle.GetReferenceInfo();
+
+               if (ref.ObjectID < 0)
+               {
+                    node.reference.isNull = true;
+               }
+               else
+               {
+                    node.reference.isNull = false;
+                    node.reference.ScopeLevel = ref.ScopeLevel;
+                    node.reference.ScopeID = ref.ScopeID;
+                    node.reference.ObjectID = ref.ObjectID;
+               }
+
+               node.canSetReference =
+                    [](EngineObject* candidate) -> bool
+                    {
+                         if (!candidate)
+                              return true;
+
+                         return dynamic_cast<T*>(candidate) != nullptr;
+                    };
+
+               node.setReference =
+                    [obj, member](void* resolved)
+                    {
+                         EngineObjectHandle<T>& handle = obj->*member;
+
+                         if (!resolved)
+                         {
+                              handle.Reset();
+                              return;
+                         }
+
+                         EngineObject* object =
+                              static_cast<EngineObject*>(resolved);
+
+                         T* typed =
+                              dynamic_cast<T*>(object);
+
+                         if (!typed)
+                         {
+                              handle.Reset();
+                              return;
+                         }
+
+                         handle.SetReferenceInfo(
+                              typed->ReferenceInfo
+                         );
+                    };
+
+               return node;
+          };
+
+     return field;
+}
 // ============================================================
 // Automatic Registration
 // ============================================================
@@ -1512,7 +1592,11 @@ inline ReflectionAutoRegister<ClassName>                    \
           &ClassName::field                                 \
      )
 
-
+#define REF_HANDLE_FIELD(ClassName, field)                  \
+     MakeHandleReferenceField<ClassName>(                   \
+          #field,                                           \
+          &ClassName::field                                 \
+     )
 // ============================================================
 // REFLECT_FRIEND
 // ============================================================

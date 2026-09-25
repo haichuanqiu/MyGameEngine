@@ -1,4 +1,3 @@
-
 #include "Engine/Engine.h"
 #include "CommandUtility.h"
  Scene* CommandUtility::GetEditorCurrentScene()
@@ -29,4 +28,9 @@
                0.0f
           )
      );
+     
 }
+
+ void CommandUtility::EditorTimeDestroyGameObject(GameObject* target) {
+     EngineObject::DestroyGameObject(target);
+ }

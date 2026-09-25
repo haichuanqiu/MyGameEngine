@@ -1,7 +1,7 @@
 // PointLightCustomInspector.cpp
 #include "ClassInspector.h"
 #include "Engine/Components/RenderingRelatedComponents.h"   // 你的 PointLight 定义
-
+#include "Editor/CommandUtility.h"
 
 // 自动注册，不需要集中管理
 
@@ -63,12 +63,6 @@ static bool s_GameObjectInspectorRegistered = []()
           CustomInspectorFactory::Instance().Register<GameObject>(
                [](GameObject& gameObject) -> bool
                {
-                  // PointLightCustomInspector.cpp
-#include "ClassInspector.h"
-#include "Engine/Components/RenderingRelatedComponents.h"   // 你的 PointLight 定义
-
-
-// 自动注册，不需要集中管理
 
 static bool s_PointLightInspectorRegistered = []()
      {
@@ -153,6 +147,10 @@ static bool s_GameObjectInspectorRegistered = []()
                          sizeof(nameBuffer)))
                     {
                          gameObject.name = nameBuffer;
+                    }
+                    if (ImGui::Button("delete")) {
+                         CommandUtility::EditorTimeDestroyGameObject(&gameObject);
+                         return false;
                     }
 
                     ImGui::Separator();

@@ -1,5 +1,4 @@
 #pragma once
-#include "Serialization/reflection.h"
 class ReferenceDescription
 {
 public:
@@ -18,9 +17,3 @@ public:
 	ReferenceDescription() = default;
 };
 
-REFLECT(
-	ReferenceDescription,
-	FIELD(ReferenceDescription, ScopeLevel),
-	FIELD(ReferenceDescription, ScopeID),
-	FIELD(ReferenceDescription, ObjectID)
-	)

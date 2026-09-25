@@ -181,16 +181,16 @@ namespace testScene {
 		
 		ReferenceTest* Test = cube.AddComponent<ReferenceTest>();
 
-		Test->material = AssetManager::Instance().Find<Material>(materialID);
+		Test->material.SetReferenceInfo ( AssetManager::Instance().Find<Material>(materialID)->ReferenceInfo);
 
-		Test->myRefGameObject = ReferenceResolver:: Instance().GetItemOfType<GameObject>(light.ReferenceInfo);
+		Test->myRefGameObject.SetReferenceInfo(light.ReferenceInfo);
 		
 		//Test->myRefGameObject = engine.currentScene.GetObjectOfType<std::remove_reference_t<decltype(light)>>(light.ReferenceInfo.ObjectID);
 
 		//Test->rd = engine.currentScene.GetObjectOfType<std::remove_pointer_t<decltype(renderer)>>(renderer->ReferenceInfo.ObjectID);
-		Test->rd = ReferenceResolver::Instance().GetItemOfType<Renderer>(renderer->ReferenceInfo);
+		Test->rd.SetReferenceInfo(renderer->ReferenceInfo);
 		//Test->ts = Engine::Instance().GetScene(light.ReferenceInfo.ScopeID)->GetObjectOfType<GameObject>(light.ReferenceInfo.ObjectID)->transform;
-		Test->ts = ReferenceResolver::Instance().GetItemOfType<GameObject>(light.ReferenceInfo)->transform;
+		Test->ts.SetReferenceInfo(light.ReferenceInfo);
 		Test->testInt = 123;
 		Test->testFloat = 45.67f;
 		Test->testBool = true;

@@ -1,5 +1,6 @@
 #pragma once
 #include "Assets/ReferenceDescription.h"
+#include "Serialization/Reflection.h"
 class GameObject;
 class EngineObject
 {
