@@ -50,6 +50,7 @@ public:
                m_Engine->deleteObj();
           } else {
                ENGINE_PROFILE_SCOPE("Editor Delete GameObject");
+               m_Engine->waitForFrameUpdateQueues.DestoryAllInDestoryComponentQueue();
                m_Engine->waitForFrameUpdateQueues.DestoryAllInDestoryStack();
                m_Engine->waitForFrameUpdateQueues.ChangeAllEnableStatus();
           }
@@ -146,7 +147,7 @@ private:
           const std::string sceneData =
                buffer.str();
 
-          m_Engine->currentScene->ClearScene();
+          m_Engine->currentScene->InternalClearSceneImmediate();
 
           SceneSerializer::LoadScene(
                m_Engine->currentScene,
@@ -245,16 +246,6 @@ void RegisterUIEvent(){
                     savePath
                );
 
-
-               std::cout
-                    << "[Scene Save] Scene saved to: "
-                    << savePath
-                    << std::endl;
-
-
-               std::cout
-                    << serialized
-                    << std::endl;
           }
      );
 }

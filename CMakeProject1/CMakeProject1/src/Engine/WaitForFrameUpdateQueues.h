@@ -9,12 +9,16 @@ public:
 	void AddToDestoryQueue(GameObject* target) {
 		destoryStack.push_back(target);
 	}
+	void AddToDestoryComponentQueue(Component* target) {
+		destoryComponentStack.push_back(target);
+	}
 	void AddToenableStatusChangeQueue(GameObject* target,bool enable) {
 		EnableStatusConfig config;
 		config.gameObject=target;
 		config.toEnable=enable;
 		enableStatusChangeStack.push_back(config);
 	}
+	std::vector <Component*> destoryComponentStack;
 	std::vector <GameObject*> destoryStack;
 	std::vector <EnableStatusConfig> enableStatusChangeStack;
 	void ChangeAllEnableStatus() {
@@ -28,4 +32,5 @@ public:
 		enableStatusChangeStack.clear();
 	}
 	void DestoryAllInDestoryStack();
+	void DestoryAllInDestoryComponentQueue();
 };

@@ -42,17 +42,27 @@ class DeleteTest : public Component
 {
 public:
 	EngineObjectHandle<GameObject>toDelete;
+	EngineObjectHandle<Renderer> toDeleteRd;
 	int targetFrame=10;
 	int currentFrame;
 	void Update() {
 
 		currentFrame+=1;
-		if (targetFrame== currentFrame) {
-			
+		if (targetFrame == currentFrame+1) {
+			if(toDelete.get())
 			DestroyGameObject(toDelete.get());
-			std::cout
-				<< "Call DestroyGameObject"
-				<< std::endl;
+			if (toDelete.get())
+			DestroyGameObject(toDelete.get());
+			if (toDelete.get())
+			DestroyGameObject(toDelete.get());
+		}
+		if (targetFrame== currentFrame) {
+			if (toDeleteRd.get())
+			DestroyComponent(toDeleteRd.get());
+			if (toDeleteRd.get())
+				DestroyComponent(toDeleteRd.get());
+			if (toDeleteRd.get())
+				DestroyComponent(toDeleteRd.get());
 		}
 	}
 
@@ -62,6 +72,7 @@ REFLECT_BASE(
 	DeleteTest,
 	Component,
 	REF_HANDLE_FIELD(DeleteTest, toDelete),
+	REF_HANDLE_FIELD(DeleteTest, toDeleteRd),
 	FIELD(DeleteTest, targetFrame),
 	FIELD(DeleteTest, currentFrame)
 

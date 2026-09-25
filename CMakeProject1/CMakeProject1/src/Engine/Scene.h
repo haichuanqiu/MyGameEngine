@@ -14,15 +14,6 @@ public:
      Scene() = default;
      std::string filePath;
      int sceneIndex = 0;
-     void ClearScene()
-     {
-
-          m_Objects.clear();
-
-          m_GameObjects.clear();
-
-          m_NextObjectID = 1;
-     }
      GameObject& AddGameObject()
      {
           auto gameObject = std::make_unique<GameObject>();
@@ -34,71 +25,6 @@ public:
           m_GameObjects.push_back(std::move(gameObject));
 
           return *ptr;
-     }
-     
-     bool DeleteGameObject(int objectID)
-     {
-          auto it = std::find_if(
-               m_GameObjects.begin(),
-               m_GameObjects.end(),
-
-               [objectID](
-                    const std::unique_ptr<GameObject>& gameObject)
-               {
-                    return gameObject &&
-                         gameObject->ReferenceInfo.ObjectID
-                         == objectID;
-               }
-          );
-
-
-          if (it == m_GameObjects.end())
-               return false;
-
-
-          GameObject* gameObject =
-               it->get();
-
-
-          // ============================================================
-          // Unregister Components
-          // ============================================================
-
-          for (const auto& component :
-               gameObject->GetComponents())
-          {
-               if (!component)
-                    continue;
-
-
-               TryRemoveRenderer(
-                    component.get()
-               );
-
-
-               m_Objects.erase(
-                    component->ReferenceInfo.ObjectID
-               );
-          }
-
-
-          // ============================================================
-          // Unregister GameObject
-          // ============================================================
-
-          m_Objects.erase(
-               gameObject->ReferenceInfo.ObjectID
-          );
-
-
-          // ============================================================
-          // Destroy
-          // ============================================================
-
-          m_GameObjects.erase(it);
-
-
-          return true;
      }
 
 
@@ -149,6 +75,100 @@ public:
           return result;
      }
 public:
+     // ============================================================
+     // internal delete
+     // ============================================================
+     void InternalClearSceneImmediate()
+     {
+
+          m_Objects.clear();
+
+          m_GameObjects.clear();
+
+          m_NextObjectID = 1;
+     }
+     bool InternalUnregisterAndDeleteComponentImmediate(uint64_t objectID)
+     {
+
+          auto it = m_Objects.find(objectID);
+
+          if (it == m_Objects.end())
+          {
+               return false;
+          }
+          Component* component = dynamic_cast<Component*>(it->second);
+
+
+          if (!component)
+          {
+               std::cout
+                    << "not component"
+                    << std::endl;
+               return false;
+          }
+
+          GameObject* gameObject =
+               component->gameObject;
+          TryRemoveRenderer(
+               component
+          );
+          bool success = gameObject->InternalRemoveComponentImmediate(objectID);
+          if (!success) {
+
+               return false;
+          }
+          m_Objects.erase(it);
+          return true;
+     }
+     bool InternalUnregisterDeleteGameObjectImmediate(int objectID)
+     {
+          auto it = std::find_if(
+               m_GameObjects.begin(),
+               m_GameObjects.end(),
+
+               [objectID](
+                    const std::unique_ptr<GameObject>& gameObject)
+               {
+                    return gameObject &&
+                         gameObject->ReferenceInfo.ObjectID
+                         == objectID;
+               }
+          );
+
+
+          if (it == m_GameObjects.end())
+               return false;
+
+
+          GameObject* gameObject =
+               it->get();
+          for (const auto& component :
+               gameObject->GetComponents())
+          {
+               if (!component)
+                    continue;
+
+
+               TryRemoveRenderer(
+                    component.get()
+               );
+
+
+               m_Objects.erase(
+                    component->ReferenceInfo.ObjectID
+               );
+          }
+
+          m_Objects.erase(
+               gameObject->ReferenceInfo.ObjectID
+          );
+          m_GameObjects.erase(it);
+
+
+          return true;
+     }
+
+public:
        // ============================================================
        // for scene serialization
        // ============================================================
@@ -198,8 +218,8 @@ public:
           gameObject->ReferenceInfo.ScopeID = scopeID;
           gameObject->ReferenceInfo.ObjectID = objectID;
 
-          if (m_NextObjectID < objectID) {
-               m_NextObjectID = objectID;
+          if (m_NextObjectID < objectID + 1) {
+               m_NextObjectID = objectID + 1;
           }
 
           // ============================================================
@@ -266,8 +286,8 @@ public:
           component->ReferenceInfo.ScopeID = scopeID;
           component->ReferenceInfo.ObjectID = objectID;
 
-          if (m_NextObjectID < objectID) {
-               m_NextObjectID = objectID;
+          if (m_NextObjectID < objectID+1) {
+               m_NextObjectID = objectID + 1;
           }
 
           // ============================================================

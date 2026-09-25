@@ -48,7 +48,7 @@ public:
 
      ~GameObject()
      {
-          ClearComponents();
+          InternalClearComponentsImmediate();
           OnComponentAdded.UnsubscribeAll();
      }
 
@@ -66,7 +66,7 @@ public:
      // ============================================================
 
      Event<Component*> OnComponentAdded;
-
+     Event<ReferenceDescription> OnComponentRemoved;
 
      // ============================================================
      // Add Component
@@ -150,7 +150,63 @@ public:
      Renderer* renderer =
           nullptr;
      bool enabled=true;
-     void ClearComponents()
+     bool InternalRemoveComponentImmediate(int objectID)
+     {
+          auto it =
+               std::find_if(
+                    m_Components.begin(),
+                    m_Components.end(),
+                    [objectID](
+                         const std::unique_ptr<Component>& component
+                         )
+                    {
+                         return
+                              component.get()->ReferenceInfo.ObjectID ==
+                              objectID;
+                    }
+               );
+
+
+          // ============================================================
+          // Not Found
+          // ============================================================
+
+          if (
+               it ==
+               m_Components.end()
+               )
+          {
+               return false;
+          }
+
+
+          // ============================================================
+          // 现在才能安全解引用
+          // ============================================================
+
+          Component* component =
+               it->get();
+
+          OnComponentRemoved.Invoke(
+               component->ReferenceInfo
+          );
+
+          component->OnRemoved(
+               this
+          );
+
+          component->gameObject =
+               nullptr;
+
+
+          m_Components.erase(
+               it
+          );
+
+          return true;
+     }
+
+     void InternalClearComponentsImmediate()
      {
           for (auto& component : m_Components)
           {

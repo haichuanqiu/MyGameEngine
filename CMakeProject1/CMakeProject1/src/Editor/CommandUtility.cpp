@@ -34,3 +34,6 @@
  void CommandUtility::EditorTimeDestroyGameObject(GameObject* target) {
      EngineObject::DestroyGameObject(target);
  }
+ void CommandUtility::EditorTimeDestroyComponent(Component* component) {
+      EngineObject::DestroyComponent(component);
+ }

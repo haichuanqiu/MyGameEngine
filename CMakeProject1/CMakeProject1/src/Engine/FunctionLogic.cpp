@@ -94,16 +94,32 @@ void EngineObject::DestroyGameObject(GameObject* target) {
      Engine::Instance().waitForFrameUpdateQueues.AddToDestoryQueue(target);
 }
 
+void EngineObject::DestroyComponent(Component* target)
+     {
+     
+     target->waitingToDestroy = true;
+     Engine::Instance().waitForFrameUpdateQueues.AddToDestoryComponentQueue(target);
+}
+
+
 void WaitForFrameUpdateQueues::DestoryAllInDestoryStack() {
      for (auto& gm : destoryStack)
      {
           if (!gm)
                continue;
           int id = gm->ReferenceInfo.ObjectID;
-          Engine::Instance().currentScene->DeleteGameObject(id);
+          Engine::Instance().currentScene->InternalUnregisterDeleteGameObjectImmediate(id);
           destoryStack.clear();
-          std::cerr
-               << "real destroy"
-               << std::endl;
+     }
+}
+
+void WaitForFrameUpdateQueues::DestoryAllInDestoryComponentQueue() {
+     for (auto& compo : destoryComponentStack)
+     {
+          if (!compo)
+               continue;
+          int id = compo->ReferenceInfo.ObjectID;
+          bool success=Engine::Instance().currentScene->InternalUnregisterAndDeleteComponentImmediate(id);
+          destoryComponentStack.clear();
      }
 }
