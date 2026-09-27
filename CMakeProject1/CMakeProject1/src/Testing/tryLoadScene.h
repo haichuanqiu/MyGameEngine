@@ -20,91 +20,6 @@ namespace testLoadScene
 {
      
 
-     Mesh RegisterMesh()
-     {
-          float squareVertices[] = {
-               // 前面 (z = +0.5)
-               -0.5f, -0.5f,  0.5f,
-                0.5f, -0.5f,  0.5f,
-                0.5f,  0.5f,  0.5f,
-               -0.5f,  0.5f,  0.5f,
-
-               // 后面 (z = -0.5)
-               -0.5f, -0.5f, -0.5f,
-                0.5f, -0.5f, -0.5f,
-                0.5f,  0.5f, -0.5f,
-               -0.5f,  0.5f, -0.5f
-          };
-
-          unsigned int indices[] = {
-               // 前面
-               0, 1, 2,
-               2, 3, 0,
-
-               // 后面
-               4, 6, 5,
-               6, 4, 7,
-
-               // 左面
-               4, 0, 3,
-               3, 7, 4,
-
-               // 右面
-               1, 5, 6,
-               6, 2, 1,
-
-               // 上面
-               3, 2, 6,
-               6, 7, 3,
-
-               // 下面
-               4, 5, 1,
-               1, 0, 4
-          };
-
-          Mesh squareMesh;
-
-          squareMesh.vertexData.resize(
-               sizeof(squareVertices)
-          );
-
-          std::memcpy(
-               squareMesh.vertexData.data(),
-               squareVertices,
-               sizeof(squareVertices)
-          );
-
-          squareMesh.indexData.resize(
-               sizeof(indices)
-          );
-
-          std::memcpy(
-               squareMesh.indexData.data(),
-               indices,
-               sizeof(indices)
-          );
-
-          squareMesh.vertexLayout.stride[0] =
-               3 * sizeof(float);
-
-          squareMesh.vertexLayout.attributes.push_back({
-              VertexSemantic::Position,
-              VertexFormat::Float3,
-              0,
-              0
-               });
-
-          squareMesh.vertexCount = 8;
-          squareMesh.indexCount = 36;
-
-          return squareMesh;
-     }
-
-
-     // ============================================================
-     // Load Scene
-     // ============================================================
-
      void OnSceneCreated(Engine& engine)
      {
           // ============================================================
@@ -120,23 +35,6 @@ namespace testLoadScene
                << "Start Load Scene\n"
                << "====================================\n";
 
-
-          // ========================================================
-          // 1. 重新注册运行时 Mesh
-          // ========================================================
-
-          Mesh cubeMesh =
-               RegisterMesh();
-
-          int cubeMeshID =
-               engine.vertexDataController.registerMesh(
-                    cubeMesh
-               );
-
-          std::cout
-               << "Registered Cube Mesh. ID = "
-               << cubeMeshID
-               << std::endl;
 
 
           // ========================================================

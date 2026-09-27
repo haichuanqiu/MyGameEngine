@@ -71,7 +71,7 @@ Data: {
     },
     "rotation": {
         "x": 0.167731,
-        "y": 0.254887,
+        "y": 0.25487,
         "z": 0.044943,
         "w": 0.951251
     }
@@ -120,7 +120,11 @@ Data: {
         "ScopeID": 0,
         "ObjectID": 5
     },
-    "ts": null,
+    "ts": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 0
+    },
     "testInt": 123,
     "testFloat": 45.67,
     "testString": "ReferenceTest Primitive Test",

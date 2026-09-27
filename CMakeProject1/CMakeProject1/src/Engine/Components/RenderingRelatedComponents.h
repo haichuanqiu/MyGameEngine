@@ -3,6 +3,8 @@
 #include "Engine/DataStructure.h"
 #include "rendering/Shader.h"
 #include "Assets/Material.h"
+#include "Assets/Vertices.h"
+#include "Serialization/EngineObjectHandle.h"
 class GameObject;
 class RenderSystem;
 class Renderer : public Component
@@ -13,16 +15,17 @@ public:
 			material->setShader();
 		}
 	 }
+	EngineObjectHandle<Vertices> vertexData;
 	Material* material;
-	int renderSystemIndex = -1;
+	//int renderSystemIndex = -1;
 private:
 };
 REFLECT_BASE(
 	Renderer,
 	Component,
-	FIELD(Renderer, renderSystemIndex),
+	//FIELD(Renderer, renderSystemIndex),
 	REF_FIELD(Renderer, material),
-
+	REF_HANDLE_FIELD(Renderer, vertexData)
 )
 REGISTER_COMPONENT(Renderer)
 class PointLight :public Component {

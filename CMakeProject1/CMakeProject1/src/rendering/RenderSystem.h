@@ -432,8 +432,8 @@ public:
 
                if (rd->gameObject == nullptr)
                     continue;
-
-               if (rd->renderSystemIndex < 0)
+               auto vertexDataObject= rd->vertexData.get();
+               if (!vertexDataObject || vertexDataObject->RenderSystemIndex < 0)
                     continue;
 
                if (rd->material == nullptr)
@@ -527,11 +527,11 @@ public:
                // =================================================
 
                m_VertexDataController.useMesh(
-                    rd->renderSystemIndex
+                    vertexDataObject->RenderSystemIndex
                );
 
                m_VertexDataController.drawMesh(
-                    rd->renderSystemIndex
+                    vertexDataObject->RenderSystemIndex
                );
           }
 

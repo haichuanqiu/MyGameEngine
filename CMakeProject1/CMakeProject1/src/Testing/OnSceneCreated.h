@@ -10,92 +10,17 @@
 #include "Editor/EditorApplication.h"
 #include "Serialization/SceneSerializer.h"
 #include "Assets/Material.h"
+#include "Assets/Vertices.h"
 #include "Assets/AssetManager.h"
 
 namespace testScene {
-	Mesh RegisterMesh() {
-		float squareVertices[] = {
-			// 前面 (z = +0.5)
-			-0.5f, -0.5f,  0.5f,  // 0
-			 0.5f, -0.5f,  0.5f,  // 1
-			 0.5f,  0.5f,  0.5f,  // 2
-			-0.5f,  0.5f,  0.5f,  // 3
 
-			// 后面 (z = -0.5)
-			-0.5f, -0.5f, -0.5f,  // 4
-			 0.5f, -0.5f, -0.5f,  // 5
-			 0.5f,  0.5f, -0.5f,  // 6
-			-0.5f,  0.5f, -0.5f   // 7
-		};
-		unsigned int indices[] = {
-			// 前面
-			0, 1, 2,
-			2, 3, 0,
-
-			// 后面
-			4, 6, 5,
-			6, 4, 7,
-
-			// 左面
-			4, 0, 3,
-			3, 7, 4,
-
-			// 右面
-			1, 5, 6,
-			6, 2, 1,
-
-			// 上面
-			3, 2, 6,
-			6, 7, 3,
-
-			// 下面
-			4, 5, 1,
-			1, 0, 4
-		};
-		Mesh squareMesh;
-		squareMesh.vertexData.resize(sizeof(squareVertices));
-
-		std::memcpy(
-			squareMesh.vertexData.data(),
-			squareVertices,
-			sizeof(squareVertices)
-		);
-		squareMesh.indexData.resize(sizeof(indices));
-		std::memcpy(
-			squareMesh.indexData.data(),
-			indices,
-			sizeof(indices)
-		);
-		squareMesh.vertexLayout.stride[0] =
-			3 * sizeof(float);
-
-
-		squareMesh.vertexLayout.attributes.push_back({
-		    VertexSemantic::Position,
-		    VertexFormat::Float3,
-		    0,      // offset
-		    0       // stream
-			});
-		squareMesh.vertexCount = 8;
-		squareMesh.indexCount = 36;
-		return squareMesh;
-	}
 	void OnSceneCreated(
 		
 		Engine& engine
 	)
 	{
 		std::cout << "StartCreate gameobjects" << std::endl;
-
-		// --------------------------------
-		// Mesh
-		// --------------------------------
-
-		Mesh cubeMesh = RegisterMesh();
-
-		int cubeMeshID =
-			engine.vertexDataController.registerMesh(cubeMesh);
-
 
 		// --------------------------------
 		// Light
@@ -148,7 +73,7 @@ namespace testScene {
 		Renderer* renderer = cube.AddComponent<Renderer>();
 	
 		Material m;
-
+		
 		m.setVertShaderPath(
 			"../../../../CMakeProject1/assets/shaders/vert.vs"
 		);
@@ -158,7 +83,15 @@ namespace testScene {
 		);
 		int materialID =
 			AssetManager::Instance().Register(std::move(m));
-
+		Vertices v1;
+		v1.SetPreset(0);
+		int verticesID1 =AssetManager::Instance().Register(std::move(v1));
+		Vertices v2;
+		v2.SetPreset(1);
+		int verticesID2 = AssetManager::Instance().Register(std::move(v2));
+		Vertices v3;
+		v3.SetPreset(2);
+		int verticesID3 = AssetManager::Instance().Register(std::move(v3));
 		renderer->material =
 			AssetManager::Instance().Find<Material>(materialID);
 
@@ -177,7 +110,7 @@ namespace testScene {
 			1.0f
 		);
 
-		renderer->renderSystemIndex = cubeMeshID;
+		//renderer->renderSystemIndex = AssetManager::Instance().Find<Vertices>(verticesID)->RenderSystemIndex;
 		
 		ReferenceTest* Test = cube.AddComponent<ReferenceTest>();
 
@@ -202,6 +135,18 @@ namespace testScene {
 		AssetManager::Instance().Save<Material>(
 			materialID,
 			"../../../../CMakeProject1/assets/Material1.Material.AssetObject"
+		);
+		AssetManager::Instance().Save<Vertices>(
+			verticesID1,
+			"../../../../CMakeProject1/assets/Square.vertex.AssetObject"
+		);
+		AssetManager::Instance().Save<Vertices>(
+			verticesID2,
+			"../../../../CMakeProject1/assets/Triangle.vertex.AssetObject"
+		);
+		AssetManager::Instance().Save<Vertices>(
+			verticesID3,
+			"../../../../CMakeProject1/assets/Plane.vertex.AssetObject"
 		);
 		std::cout << s << std::endl;
 

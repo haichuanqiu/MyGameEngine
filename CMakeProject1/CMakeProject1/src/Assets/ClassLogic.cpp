@@ -113,3 +113,14 @@ template std::vector<EngineObject*>
 ReferenceResolver::FindAllOfType<EngineObject>(
      ReferenceDescription
 );
+void Vertices::SetPreset(int preset)
+{
+     currentPreset = preset;
+
+     Mesh myMesh = CreateMesh();
+
+     RenderSystemIndex =
+          Engine::Instance()
+          .vertexDataController
+          .registerMesh(myMesh);
+}
