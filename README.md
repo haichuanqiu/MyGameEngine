@@ -22,18 +22,16 @@ The goal of this project is to build practical engine architecture from the grou
 
 ## Editor Preview
 
-### Runtime and Editor Interaction
 
 ![Playtest demo](doc/playtest.gif)
 
-### Light and Material Editing
 
 ![Light color editing](doc/light%20color.png)
 
-### Asset Reference Field
 
 ![Reference field](doc/ref%20field.png)
 
+![Reference field](doc/pic1.png)
 ## Tech Stack
 
 - C++20
