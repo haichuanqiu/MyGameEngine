@@ -1,0 +1,30 @@
+# Visual Studio / CMake generated files
+.vs/
+out/
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# Compiled objects and debug artifacts
+*.obj
+*.o
+*.lib
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.idb
+*.ipch
+*.db
+*.opendb
+*.suo
+*.user
+
+# Local editor and OS noise
+.vscode/
+.idea/
+*.swp
+*.tmp
+Thumbs.db
+Desktop.ini

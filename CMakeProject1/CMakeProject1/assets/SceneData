@@ -1,0 +1,210 @@
+{
+GameObject 
+name: Light
+ObjectId: 0
+Component{
+TypeId:13979161094353040123
+Data: {
+    "ReferenceInfo": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 1
+    },
+    "position": {
+        "x": 2,
+        "y": 3,
+        "z": 2
+    },
+    "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+    },
+    "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+    }
+}
+}
+Component{
+TypeId:7672353354190015963
+Data: {
+    "ReferenceInfo": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 2
+    },
+    "Intensity": 10,
+    "Range": 10,
+    "Color": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+    },
+    "id": 0
+}
+}
+}
+{
+GameObject 
+name: Cube
+ObjectId: 3
+Component{
+TypeId:13979161094353040123
+Data: {
+    "ReferenceInfo": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 4
+    },
+    "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+    },
+    "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+    },
+    "rotation": {
+        "x": 0.167731,
+        "y": 0.254887,
+        "z": 0.044943,
+        "w": 0.951251
+    }
+}
+}
+Component{
+TypeId:18406484507766955422
+Data: {
+    "ReferenceInfo": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 5
+    },
+    "renderSystemIndex": 0,
+    "material": {
+        "ScopeLevel": 1,
+        "ScopeID": -1,
+        "ObjectID": 0
+    }
+}
+}
+Component{
+TypeId:9437747499611283770
+Data: {
+    "ReferenceInfo": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 6
+    },
+    "material": {
+        "ScopeLevel": 1,
+        "ScopeID": -1,
+        "ObjectID": 0
+    },
+    "myRefGameObject": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 0
+    },
+    "rd": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 5
+    },
+    "ts": null,
+    "testInt": 123,
+    "testFloat": 45.67,
+    "testString": "ReferenceTest Primitive Test",
+    "testBool": true
+}
+}
+}
+{
+GameObject 
+name: New GameObject2
+ObjectId: 10
+Component{
+TypeId:13979161094353040123
+Data: {
+    "ReferenceInfo": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 11
+    },
+    "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+    },
+    "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+    },
+    "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+    }
+}
+}
+}
+{
+GameObject 
+name: New GameObject
+ObjectId: 12
+Component{
+TypeId:13979161094353040123
+Data: {
+    "ReferenceInfo": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 13
+    },
+    "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+    },
+    "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+    },
+    "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+    }
+}
+}
+Component{
+TypeId:7928801206560540010
+Data: {
+    "ReferenceInfo": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 14
+    },
+    "toDelete": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 3
+    },
+    "toDeleteRd": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 5
+    },
+    "targetFrame": 10,
+    "currentFrame": 0
+}
+}
+}
