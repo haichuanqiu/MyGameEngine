@@ -69,16 +69,14 @@ void HierarchyView::Draw()
                *gameObjectPtr;
 
 
-          if (
-               ImGui::Selectable(
-                    gameObject.name.c_str()
-               )
-               )
+          ImGui::PushID(gameObject.ReferenceInfo.ObjectID);
+
+          if (ImGui::Selectable(gameObject.name.c_str()))
           {
-               OnGameObjectClicked.Invoke(
-                    &gameObject
-               );
+               OnGameObjectClicked.Invoke(&gameObject);
           }
+
+          ImGui::PopID();
      }
 
 
