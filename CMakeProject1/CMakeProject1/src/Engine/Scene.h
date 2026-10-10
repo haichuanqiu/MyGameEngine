@@ -4,7 +4,7 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
-
+#include "Utils/IDGenerator.h"
 #include "GameObjectSystem.h"
 
 class Scene
@@ -85,7 +85,6 @@ public:
 
           m_GameObjects.clear();
 
-          m_NextObjectID = 1;
      }
      bool InternalUnregisterAndDeleteComponentImmediate(uint64_t objectID)
      {
@@ -218,9 +217,6 @@ public:
           gameObject->ReferenceInfo.ScopeID = scopeID;
           gameObject->ReferenceInfo.ObjectID = objectID;
 
-          if (m_NextObjectID < objectID + 1) {
-               m_NextObjectID = objectID + 1;
-          }
 
           // ============================================================
           // Register
@@ -286,10 +282,6 @@ public:
           component->ReferenceInfo.ScopeID = scopeID;
           component->ReferenceInfo.ObjectID = objectID;
 
-          if (m_NextObjectID < objectID+1) {
-               m_NextObjectID = objectID + 1;
-          }
-
           // ============================================================
           // Register
           // ============================================================
@@ -312,7 +304,7 @@ private:
 
           component->ReferenceInfo.ScopeLevel = 0;
           component->ReferenceInfo.ScopeID = sceneIndex;
-          component->ReferenceInfo.ObjectID = m_NextObjectID++;
+          component->ReferenceInfo.ObjectID = getID();
 
           uint64_t objectID = component->ReferenceInfo.ObjectID;
 
@@ -334,7 +326,7 @@ private:
 
           gameObject->ReferenceInfo.ScopeLevel = 0;
           gameObject->ReferenceInfo.ScopeID = sceneIndex;
-          gameObject->ReferenceInfo.ObjectID = m_NextObjectID++;
+          gameObject->ReferenceInfo.ObjectID = getID();
 
           uint64_t objectID = gameObject->ReferenceInfo.ObjectID;
 
@@ -400,9 +392,11 @@ private:
      std::unordered_map<uint64_t, EngineObject*> m_Objects;
 
 
-     // ============================================================
-     // Object ID Pool
-     // ============================================================
 
-     int m_NextObjectID = 0;
+     int getID() {
+          return IDGenerator::GenerateObjectID([this](int id)
+               {
+                    return m_Objects.contains(id);
+               });
+     }
 };

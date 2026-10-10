@@ -1,4 +1,6 @@
+
 #pragma once
+
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -7,8 +9,10 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <cstdint>
 
 #include "EngineObject.h"
+#include "Utils/IDGenerator.h"
 #include "Serialization/Reflection.h"
 #include "Serialization/ClassRegistry.h"
 #include "Serialization/JsonSerializer.h"
@@ -17,13 +21,13 @@ class Asset : public EngineObject
 {
 public:
      virtual ~Asset() = default;
-     virtual void OnLoadedBySerialization(){};
+
+     virtual void OnLoadedBySerialization() {}
 
      std::string filePath;
 
      REFLECT_FRIEND(Asset);
 };
-
 
 REFLECT_BASE(
      Asset,
@@ -31,10 +35,10 @@ REFLECT_BASE(
      FIELD(Asset, filePath),
      )
 
-
      class AssetManager
 {
 public:
+
      template<typename T>
      std::vector<T*> FindAllOfType()
      {
@@ -50,9 +54,7 @@ public:
 
                if (typedAsset)
                {
-                    result.push_back(
-                         typedAsset
-                    );
+                    result.push_back(typedAsset);
                }
           }
 
@@ -70,9 +72,7 @@ public:
                "TypeId:";
 
           size_t typePos =
-               content.find(
-                    typePrefix
-               );
+               content.find(typePrefix);
 
           if (typePos == std::string::npos)
           {
@@ -83,18 +83,11 @@ public:
                return -1;
           }
 
-
           size_t typeStart =
-               typePos +
-               typePrefix.size();
-
+               typePos + typePrefix.size();
 
           size_t typeEnd =
-               content.find(
-                    '\n',
-                    typeStart
-               );
-
+               content.find('\n', typeStart);
 
           if (typeEnd == std::string::npos)
           {
@@ -105,24 +98,19 @@ public:
                return -1;
           }
 
-
           std::string typeString =
                content.substr(
                     typeStart,
                     typeEnd - typeStart
                );
 
-
           TypeId typeId = 0;
-
 
           try
           {
                typeId =
                     static_cast<TypeId>(
-                         std::stoull(
-                              typeString
-                         )
+                         std::stoull(typeString)
                          );
           }
           catch (...)
@@ -134,17 +122,13 @@ public:
                return -1;
           }
 
-
           // =====================================================
           // Check Reflection
           // =====================================================
 
           const TypeInfo* typeInfo =
                ReflectionRegistry::Instance()
-               .FindById(
-                    typeId
-               );
-
+               .FindById(typeId);
 
           if (!typeInfo)
           {
@@ -157,17 +141,13 @@ public:
                return -1;
           }
 
-
           // =====================================================
           // Create
           // =====================================================
 
           void* object =
                ClassRegistry::Instance()
-               .Create(
-                    typeId
-               );
-
+               .Create(typeId);
 
           if (!object)
           {
@@ -180,12 +160,8 @@ public:
                return -1;
           }
 
-
           Asset* asset =
-               static_cast<Asset*>(
-                    object
-                    );
-
+               static_cast<Asset*>(object);
 
           // =====================================================
           // Data
@@ -194,13 +170,11 @@ public:
           const std::string dataPrefix =
                "Data: ";
 
-
           size_t dataPos =
                content.find(
                     dataPrefix,
                     typeEnd
                );
-
 
           if (dataPos == std::string::npos)
           {
@@ -213,17 +187,11 @@ public:
                return -1;
           }
 
-
           size_t dataStart =
-               dataPos +
-               dataPrefix.size();
-
+               dataPos + dataPrefix.size();
 
           std::string data =
-               content.substr(
-                    dataStart
-               );
-
+               content.substr(dataStart);
 
           // =====================================================
           // Remove trailing newline
@@ -240,7 +208,6 @@ public:
                data.pop_back();
           }
 
-
           // =====================================================
           // Deserialize
           // =====================================================
@@ -250,7 +217,6 @@ public:
                data
           );
 
-
           // =====================================================
           // Object ID
           // =====================================================
@@ -258,25 +224,19 @@ public:
           AssetManager& manager =
                Instance();
 
-
           asset->ReferenceInfo.ObjectID =
-               manager.m_NextObjectID++;
-
+               manager.GenerateUniqueObjectID();
 
           int objectID =
                asset->ReferenceInfo.ObjectID;
-
 
           // =====================================================
           // Asset Manager Ownership
           // =====================================================
 
           manager.m_Assets.push_back(
-               std::shared_ptr<Asset>(
-                    asset
-               )
+               std::shared_ptr<Asset>(asset)
           );
-
 
           return objectID;
      }
@@ -284,9 +244,7 @@ public:
      static void Scan(
           const std::string& path)
      {
-          namespace fs =
-               std::filesystem;
-
+          namespace fs = std::filesystem;
 
           // =====================================================
           // Check Path
@@ -302,7 +260,6 @@ public:
                return;
           }
 
-
           // =====================================================
           // Scan Recursively
           // =====================================================
@@ -315,25 +272,21 @@ public:
                if (!entry.is_regular_file())
                     continue;
 
-
                const fs::path& filePath =
                     entry.path();
 
-
                if (
-                    filePath.extension()
-                    != ".AssetObject"
+                    filePath.extension() !=
+                    ".AssetObject"
                     )
                {
                     continue;
                }
 
-
                std::ifstream file(
                     filePath,
                     std::ios::in
                );
-
 
                if (!file)
                {
@@ -345,22 +298,15 @@ public:
                     continue;
                }
 
-
                std::stringstream buffer;
 
-               buffer <<
-                    file.rdbuf();
-
+               buffer << file.rdbuf();
 
                std::string content =
                     buffer.str();
 
-
                int objectID =
-                    LoadContent(
-                         content
-                    );
-
+                    LoadContent(content);
 
                if (objectID == -1)
                {
@@ -372,7 +318,6 @@ public:
                     continue;
                }
 
-
                std::cout
                     << "[AssetManager] Loaded asset: "
                     << filePath.string()
@@ -381,14 +326,12 @@ public:
                     << std::endl;
           }
 
-
           // =====================================================
           // Serialization Loaded Callback
           // =====================================================
 
           AssetManager& manager =
                Instance();
-
 
           for (
                const std::shared_ptr<Asset>& asset :
@@ -397,7 +340,6 @@ public:
           {
                if (!asset)
                     continue;
-
 
                asset->OnLoadedBySerialization();
           }
@@ -409,6 +351,10 @@ public:
           return instance;
      }
 
+     // =====================================================
+     // Register
+     // =====================================================
+
      template<typename T>
      uint64_t Register(T asset)
      {
@@ -418,19 +364,22 @@ public:
                );
 
           ptr->ReferenceInfo.ObjectID =
-               m_NextObjectID++;
-          ptr->ReferenceInfo.ScopeID =-1;
+               GenerateUniqueObjectID();
+
+          ptr->ReferenceInfo.ScopeID = -1;
           ptr->ReferenceInfo.ScopeLevel = 1;
 
           uint64_t objectID =
                ptr->ReferenceInfo.ObjectID;
 
-          m_Assets.push_back(
-               ptr
-          );
+          m_Assets.push_back(ptr);
 
           return objectID;
      }
+
+     // =====================================================
+     // Save
+     // =====================================================
 
      template<typename T>
      bool Save(
@@ -462,7 +411,8 @@ public:
           {
                std::cerr
                     << "[AssetManager] Asset has no file path. "
-                    << "ObjectID: " << objectID
+                    << "ObjectID: "
+                    << objectID
                     << std::endl;
 
                return false;
@@ -474,6 +424,10 @@ public:
           );
      }
 
+     // =====================================================
+     // Find
+     // =====================================================
+
      template<typename T>
      T* Find(int objectID)
      {
@@ -482,15 +436,16 @@ public:
                if (!asset)
                     continue;
 
-               if (asset->ReferenceInfo.ObjectID != objectID)
+               if (
+                    asset->ReferenceInfo.ObjectID !=
+                    objectID
+                    )
+               {
                     continue;
-
+               }
 
                T* result =
-                    dynamic_cast<T*>(
-                         asset.get()
-                         );
-
+                    dynamic_cast<T*>(asset.get());
 
                if (!result)
                {
@@ -503,17 +458,14 @@ public:
                     return nullptr;
                }
 
-
                return result;
           }
-
 
           std::cerr
                << "[AssetManager] Asset not found. "
                << "ObjectID: "
                << objectID
                << std::endl;
-
 
           return nullptr;
      }
@@ -526,7 +478,37 @@ private:
      AssetManager(const AssetManager&) = delete;
      AssetManager& operator=(const AssetManager&) = delete;
 
-     int m_NextObjectID = 0;
+     // =====================================================
+     // Generate Unique Object ID
+     // =====================================================
+
+     int GenerateUniqueObjectID() const
+     {
+          return IDGenerator::GenerateObjectID(
+               [this](int id)
+               {
+                    for (const auto& asset : m_Assets)
+                    {
+                         if (!asset)
+                              continue;
+
+                         if (
+                              asset->ReferenceInfo.ObjectID ==
+                              id
+                              )
+                         {
+                              return true;
+                         }
+                    }
+
+                    return false;
+               }
+          );
+     }
+
+     // =====================================================
+     // Assets
+     // =====================================================
 
      std::vector<std::shared_ptr<Asset>> m_Assets;
 };
