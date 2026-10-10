@@ -6,7 +6,12 @@
 #include <string>
 #include <utility>
 #include <vector>
-
+#include <mutex>
+#include <thread>
+#include <atomic>
+#include <memory>
+#include <unordered_map>
+#include <algorithm>
 
 // ============================================================
 // Profile Event
@@ -16,14 +21,28 @@ struct ProfileEvent
 {
      std::string name;
 
-     // 相对于这一帧开始时间
      float startMs = 0.0f;
-
-     // 这个 scope 自己执行了多久
      float durationMs = 0.0f;
 
-     // Scope 嵌套深度
      uint32_t depth = 0;
+
+     // 新增：事件来自哪个 Thread
+     std::thread::id threadId{};
+
+     // 新增：事件属于哪一帧
+     uint64_t frameId = 0;
+};
+
+
+// ============================================================
+// Profile Frame
+// ============================================================
+
+struct ProfileFrame
+{
+     uint64_t frameId = 0;
+
+     std::vector<ProfileEvent> events;
 };
 
 
@@ -38,10 +57,14 @@ public:
      using Clock = std::chrono::steady_clock;
      using TimePoint = Clock::time_point;
 
+     struct ScopeContext
+     {
+          TimePoint frameStart{};
+          uint64_t frameId = 0;
+          uint32_t depth = 0;
+          bool active = false;
+     };
 
-     // --------------------------------------------------------
-     // Singleton
-     // --------------------------------------------------------
 
      static ProfilerManager& Instance()
      {
@@ -50,139 +73,161 @@ public:
      }
 
 
-     // --------------------------------------------------------
+     // ========================================================
      // Recording
-     // --------------------------------------------------------
+     // ========================================================
 
      void StartRecording()
      {
+          std::lock_guard<std::mutex> lock(m_Mutex);
+
           m_IsRecording = true;
      }
 
+
      void StopRecording()
      {
+          std::lock_guard<std::mutex> lock(m_Mutex);
+
           m_IsRecording = false;
      }
 
+
      bool IsRecording() const
      {
-          return m_IsRecording;
+          return m_IsRecording.load();
      }
 
 
-     // --------------------------------------------------------
+     // ========================================================
      // Frame
-     // --------------------------------------------------------
+     //
+     // 只允许 Game Thread 调用。
+     // ========================================================
 
      void NewFrame()
      {
+          std::lock_guard<std::mutex> lock(m_Mutex);
+
           if (!m_IsRecording)
                return;
 
-          // 这一帧的时间原点
+          ++m_CurrentFrameId;
+
           m_FrameStartTime = Clock::now();
 
-          // 新建一帧
-          m_Frames.emplace_back();
+          ProfileFrame frame;
+          frame.frameId = m_CurrentFrameId;
 
-          // 防止无限保存
+          m_Frames.push_back(std::move(frame));
+
           if (m_Frames.size() > m_MaxStoredFrames)
           {
                m_Frames.erase(m_Frames.begin());
           }
-
-          // 正常来说一帧开始时应该没有任何 scope
-          m_CurrentDepth = 0;
      }
 
 
-     // --------------------------------------------------------
-     // Scope
-     // --------------------------------------------------------
+     // ========================================================
+     // Begin Scope
+     //
+     // 每个 Thread 都有自己的 depth。
+     // ========================================================
 
-     uint32_t BeginScope()
+     ScopeContext BeginScope()
      {
-          if (!m_IsRecording)
-               return 0;
+          ScopeContext context;
 
-          // 当前 depth 属于这个 scope
-          const uint32_t depth = m_CurrentDepth;
+          std::lock_guard<std::mutex> lock(m_Mutex);
 
-          // 接下来进入更深一层
-          ++m_CurrentDepth;
+          if (!m_IsRecording || m_Frames.empty())
+               return context;
 
-          return depth;
+          context.active = true;
+          context.frameId = m_CurrentFrameId;
+          context.frameStart = m_FrameStartTime;
+
+          // 当前线程的独立嵌套深度
+          context.depth = s_ThreadDepth++;
+
+          return context;
      }
 
+
+     // ========================================================
+     // End Scope
+     // ========================================================
 
      void EndScope()
      {
-          if (!m_IsRecording)
-               return;
-
-          if (m_CurrentDepth > 0)
+          if (s_ThreadDepth > 0)
           {
-               --m_CurrentDepth;
+               --s_ThreadDepth;
           }
      }
 
 
-     // --------------------------------------------------------
-     // Time
-     // --------------------------------------------------------
-
-     float GetTimeFromFrameStartMs(TimePoint time) const
-     {
-          return std::chrono::duration<float, std::milli>(
-               time - m_FrameStartTime
-          ).count();
-     }
-
-
-     // --------------------------------------------------------
-     // Submit
-     // --------------------------------------------------------
+     // ========================================================
+     // Submit Event
+     //
+     // 可以被多个 Worker 同时调用。
+     // ========================================================
 
      void AddEvent(ProfileEvent event)
      {
-          if (!m_IsRecording)
-               return;
+          std::lock_guard<std::mutex> lock(m_Mutex);
 
-          if (m_Frames.empty())
-               return;
-
-          m_Frames.back().push_back(
-               std::move(event)
+          // 根据 frameId 找对应的帧，
+          // 而不是直接使用 m_Frames.back()。
+          auto it = std::find_if(
+               m_Frames.begin(),
+               m_Frames.end(),
+               [&](const ProfileFrame& frame)
+               {
+                    return frame.frameId == event.frameId;
+               }
           );
+
+          if (it == m_Frames.end())
+          {
+               // 事件所属帧已经被删除。
+               return;
+          }
+
+          it->events.push_back(std::move(event));
      }
 
 
-     // --------------------------------------------------------
+     // ========================================================
      // Data Access
-     // --------------------------------------------------------
+     //
+     // 返回 Snapshot，避免 UI 读取时 Worker 正在写。
+     // ========================================================
 
-     const std::vector<ProfileEvent>& GetCurrentFrame() const
+     std::vector<ProfileEvent> GetCurrentFrame() const
      {
-          static const std::vector<ProfileEvent> emptyFrame;
+          std::lock_guard<std::mutex> lock(m_Mutex);
 
           if (m_Frames.empty())
-               return emptyFrame;
+               return {};
 
-          return m_Frames.back();
+          return m_Frames.back().events;
      }
 
 
-     const std::vector<std::vector<ProfileEvent>>&
-          GetFrames() const
+     std::vector<ProfileFrame> GetFrames() const
      {
+          std::lock_guard<std::mutex> lock(m_Mutex);
+
           return m_Frames;
      }
 
 
      void Clear()
      {
+          std::lock_guard<std::mutex> lock(m_Mutex);
+
           m_Frames.clear();
-          m_CurrentDepth = 0;
      }
 
 
@@ -194,21 +239,23 @@ private:
      ProfilerManager(const ProfilerManager&) = delete;
      ProfilerManager& operator=(const ProfilerManager&) = delete;
 
-     ProfilerManager(ProfilerManager&&) = delete;
-     ProfilerManager& operator=(ProfilerManager&&) = delete;
-
 
 private:
 
-     bool m_IsRecording = false;
+     mutable std::mutex m_Mutex;
+
+     std::atomic<bool> m_IsRecording{ false };
 
      std::size_t m_MaxStoredFrames = 120;
 
-     uint32_t m_CurrentDepth = 0;
+     uint64_t m_CurrentFrameId = 0;
 
      TimePoint m_FrameStartTime{};
 
-     std::vector<std::vector<ProfileEvent>> m_Frames;
+     std::vector<ProfileFrame> m_Frames;
+
+     // 每个线程有独立的 Scope 嵌套深度。
+     inline static thread_local uint32_t s_ThreadDepth = 0;
 };
 
 
@@ -226,16 +273,12 @@ public:
      explicit ProfileTimer(std::string name)
           : m_Name(std::move(name))
      {
-          auto& profiler =
-               ProfilerManager::Instance();
+          auto& profiler = ProfilerManager::Instance();
 
-          // Profiler 没开的话，这个 Timer 什么都不做
-          if (!profiler.IsRecording())
+          m_Context = profiler.BeginScope();
+
+          if (!m_Context.active)
                return;
-
-          m_IsActive = true;
-
-          m_Depth = profiler.BeginScope();
 
           m_Start = Clock::now();
      }
@@ -243,28 +286,15 @@ public:
 
      ~ProfileTimer()
      {
-          if (!m_IsActive)
+          if (!m_Context.active)
                return;
 
           const auto end = Clock::now();
 
-          auto& profiler =
-               ProfilerManager::Instance();
-
-
-          // ----------------------------
-          // Start Time
-          // ----------------------------
-
           const float startMs =
-               profiler.GetTimeFromFrameStartMs(
-                    m_Start
-               );
-
-
-          // ----------------------------
-          // Duration
-          // ----------------------------
+               std::chrono::duration<float, std::milli>(
+                    m_Start - m_Context.frameStart
+               ).count();
 
           const float durationMs =
                std::chrono::duration<float, std::milli>(
@@ -272,21 +302,21 @@ public:
                ).count();
 
 
-          // ----------------------------
-          // Submit Event
-          // ----------------------------
+          ProfileEvent event;
 
-          profiler.AddEvent(
-               ProfileEvent{
-                   m_Name,
-                   startMs,
-                   durationMs,
-                   m_Depth
-               }
-          );
+          event.name = m_Name;
+          event.startMs = startMs;
+          event.durationMs = durationMs;
+          event.depth = m_Context.depth;
+
+          event.threadId = std::this_thread::get_id();
+          event.frameId = m_Context.frameId;
 
 
-          // 离开当前 Scope
+          auto& profiler = ProfilerManager::Instance();
+
+          profiler.AddEvent(std::move(event));
+
           profiler.EndScope();
      }
 
@@ -301,9 +331,7 @@ private:
 
      Clock::time_point m_Start{};
 
-     uint32_t m_Depth = 0;
-
-     bool m_IsActive = false;
+     ProfilerManager::ScopeContext m_Context;
 };
 
 
@@ -315,7 +343,7 @@ private:
 #define PROFILE_CONCAT(x, y) PROFILE_CONCAT_INTERNAL(x, y)
 
 #define ENGINE_PROFILE_SCOPE(name) \
-    ProfileTimer PROFILE_CONCAT(profileTimer_, __LINE__)(name)
+     ProfileTimer PROFILE_CONCAT(profileTimer_, __LINE__)(name)
 
 #define ENGINE_PROFILE_FUNCTION() \
-    ENGINE_PROFILE_SCOPE(__FUNCTION__)
+     ENGINE_PROFILE_SCOPE(__FUNCTION__)

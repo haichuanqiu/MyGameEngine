@@ -4,9 +4,11 @@
 #include "Profiler/profiler.h"
 
 #include <algorithm>
-#include <cfloat>
-#include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <functional>
+#include <string>
+#include <thread>
 #include <vector>
 
 
@@ -24,7 +26,8 @@ public:
 
           ImGui::Separator();
 
-          const auto& frames = profiler.GetFrames();
+          // 多线程 Profiler 返回的是安全快照。
+          auto frames = profiler.GetFrames();
 
           if (frames.empty())
           {
@@ -39,18 +42,42 @@ public:
 
           ImGui::Separator();
 
-          DrawSelectedFrameInfo(frames);
-
-          ImGui::Separator();
-
-          const auto& selectedFrame =
+          const ProfileFrame& selectedFrame =
                frames[m_SelectedFrameIndex];
 
-          DrawTimeline(selectedFrame);
+          const auto& events = selectedFrame.events;
+
+          const float profileSpan =
+               CalculateFrameTime(events);
+
+          ImGui::Text(
+               "Frame ID: %llu",
+               static_cast<unsigned long long>(
+                    selectedFrame.frameId
+                    )
+          );
+
+          ImGui::SameLine();
+
+          ImGui::Text(
+               "| Profile Span: %.3f ms",
+               profileSpan
+          );
+
+          ImGui::SameLine();
+
+          ImGui::Text(
+               "| Events: %zu",
+               events.size()
+          );
 
           ImGui::Separator();
 
-          DrawEventTable(selectedFrame);
+          DrawTimeline(events);
+
+          ImGui::Separator();
+
+          DrawEventTable(events);
 
           ImGui::End();
      }
@@ -58,40 +85,34 @@ public:
 
 private:
 
-     // ========================================================
+     // ============================================================
      // Toolbar
-     // ========================================================
+     // ============================================================
 
      void DrawToolbar(ProfilerManager& profiler)
      {
           if (profiler.IsRecording())
           {
                ImGui::Text("Recording: ON");
-
                ImGui::SameLine();
 
                if (ImGui::Button("Stop"))
                {
                     profiler.StopRecording();
-
-                    // Stop 后停留在最后一帧
                     m_FollowLatestFrame = false;
                }
           }
           else
           {
                ImGui::Text("Recording: OFF");
-
                ImGui::SameLine();
 
                if (ImGui::Button("Start"))
                {
                     profiler.StartRecording();
-
                     m_FollowLatestFrame = true;
                }
           }
-
 
           ImGui::SameLine();
 
@@ -103,30 +124,21 @@ private:
                m_FollowLatestFrame = true;
           }
 
-
           ImGui::SameLine();
 
           ImGui::Checkbox(
                "Follow Latest",
                &m_FollowLatestFrame
           );
-
-
-          ImGui::SameLine();
-
-          ImGui::Text(
-               "Stored Frames: %zu",
-               profiler.GetFrames().size()
-          );
      }
 
 
-     // ========================================================
-     // Selection
-     // ========================================================
+     // ============================================================
+     // Frame Selection
+     // ============================================================
 
      void ValidateSelectedFrame(
-          const std::vector<std::vector<ProfileEvent>>& frames)
+          const std::vector<ProfileFrame>& frames)
      {
           if (frames.empty())
           {
@@ -134,8 +146,6 @@ private:
                return;
           }
 
-
-          // 实时跟踪最新帧
           if (m_FollowLatestFrame)
           {
                m_SelectedFrameIndex =
@@ -144,195 +154,97 @@ private:
                return;
           }
 
-
-          // 防止 Clear / frame history 滚动之后越界
-          if (m_SelectedFrameIndex < 0)
-          {
-               m_SelectedFrameIndex = 0;
-          }
-
-          if (m_SelectedFrameIndex >=
-               static_cast<int>(frames.size()))
-          {
-               m_SelectedFrameIndex =
-                    static_cast<int>(frames.size()) - 1;
-          }
+          m_SelectedFrameIndex = std::clamp(
+               m_SelectedFrameIndex,
+               0,
+               static_cast<int>(frames.size()) - 1
+          );
      }
 
 
-     // ========================================================
+     // ============================================================
      // Frame History
-     // ========================================================
+     // ============================================================
 
      void DrawFrameHistory(
-          const std::vector<std::vector<ProfileEvent>>& frames)
+          const std::vector<ProfileFrame>& frames)
      {
-          ImGui::Text("Frame History");
-
-          const float graphHeight = 100.0f;
-
-          const ImVec2 graphPosition =
-               ImGui::GetCursorScreenPos();
-
-          const float graphWidth =
-               ImGui::GetContentRegionAvail().x;
-
-
-          if (graphWidth <= 0.0f)
-               return;
-
-
-          // ----------------------------------------------------
-          // Calculate frame times
-          // ----------------------------------------------------
+          ImGui::Text(
+               "Frame History (%zu)",
+               frames.size()
+          );
 
           std::vector<float> frameTimes;
 
           frameTimes.reserve(frames.size());
 
-
-          float maxFrameTime = 16.67f;
-
+          float maxTime = 16.67f;
 
           for (const auto& frame : frames)
           {
-               const float frameTime =
-                    CalculateFrameTime(frame);
+               const float time =
+                    CalculateFrameTime(frame.events);
 
-               frameTimes.push_back(frameTime);
+               frameTimes.push_back(time);
 
-               maxFrameTime =
-                    std::max(
-                         maxFrameTime,
-                         frameTime
-                    );
+               maxTime = std::max(maxTime, time);
           }
 
+          maxTime *= 1.1f;
 
-          // 留一点顶部空间
-          maxFrameTime *= 1.10f;
+          const float width =
+               ImGui::GetContentRegionAvail().x;
 
+          const float height = 100.0f;
 
-          // ----------------------------------------------------
-          // Background
-          // ----------------------------------------------------
+          if (width <= 0.0f)
+               return;
+
+          const ImVec2 origin =
+               ImGui::GetCursorScreenPos();
 
           ImDrawList* drawList =
                ImGui::GetWindowDrawList();
 
+          const float barWidth =
+               width / static_cast<float>(frames.size());
 
-          const ImVec2 graphEnd(
-               graphPosition.x + graphWidth,
-               graphPosition.y + graphHeight
-          );
-
-
-          drawList->AddRect(
-               graphPosition,
-               graphEnd,
-               ImGui::GetColorU32(
-                    ImGuiCol_Border
-               )
-          );
-
-
-          // ----------------------------------------------------
           // 16.67ms reference line
-          // ----------------------------------------------------
+          const float referenceY =
+               origin.y + height -
+               (16.67f / maxTime) * height;
 
-          DrawReferenceLine(
-               drawList,
-               graphPosition,
-               graphWidth,
-               graphHeight,
-               maxFrameTime,
-               16.67f,
-               "16.67 ms"
+          drawList->AddLine(
+               ImVec2(origin.x, referenceY),
+               ImVec2(origin.x + width, referenceY),
+               ImGui::GetColorU32(ImGuiCol_TextDisabled)
           );
 
-
-          // ----------------------------------------------------
-          // 33.33ms reference line
-          // ----------------------------------------------------
-
-          if (maxFrameTime >= 33.33f)
+          for (size_t i = 0; i < frames.size(); ++i)
           {
-               DrawReferenceLine(
-                    drawList,
-                    graphPosition,
-                    graphWidth,
-                    graphHeight,
-                    maxFrameTime,
-                    33.33f,
-                    "33.33 ms"
-               );
-          }
-
-
-          // ----------------------------------------------------
-          // Frame Bars
-          // ----------------------------------------------------
-
-          const float frameWidth =
-               graphWidth /
-               static_cast<float>(frames.size());
-
-
-          for (std::size_t i = 0;
-               i < frameTimes.size();
-               ++i)
-          {
-               const float normalized =
+               const float ratio =
                     std::clamp(
-                         frameTimes[i] / maxFrameTime,
+                         frameTimes[i] / maxTime,
                          0.0f,
                          1.0f
                     );
 
-
-               const float barHeight =
-                    normalized * graphHeight;
-
-
                const float x0 =
-                    graphPosition.x +
-                    static_cast<float>(i) * frameWidth;
-
+                    origin.x + static_cast<float>(i) * barWidth;
 
                const float x1 =
-                    x0 +
-                    std::max(
-                         1.0f,
-                         frameWidth - 1.0f
-                    );
-
+                    x0 + std::max(1.0f, barWidth - 1.0f);
 
                const float y0 =
-                    graphPosition.y +
-                    graphHeight -
-                    barHeight;
-
+                    origin.y + height - ratio * height;
 
                const float y1 =
-                    graphPosition.y +
-                    graphHeight;
+                    origin.y + height;
 
-
-               ImU32 color =
-                    ImGui::GetColorU32(
-                         ImGuiCol_PlotHistogram
-                    );
-
-
-               if (static_cast<int>(i) ==
-                    m_SelectedFrameIndex)
-               {
-                    color =
-                         ImGui::GetColorU32(
-                              ImGuiCol_ButtonActive
-                         );
-               }
-
+               const ImU32 color =
+                    static_cast<int>(i) == m_SelectedFrameIndex
+                    ? ImGui::GetColorU32(ImGuiCol_ButtonActive)
+                    : ImGui::GetColorU32(ImGuiCol_PlotHistogram);
 
                drawList->AddRectFilled(
                     ImVec2(x0, y0),
@@ -341,198 +253,120 @@ private:
                );
           }
 
-
-          // ----------------------------------------------------
-          // Invisible Button
-          // ----------------------------------------------------
-
           ImGui::InvisibleButton(
-               "##ProfilerFrameHistory",
-               ImVec2(
-                    graphWidth,
-                    graphHeight
-               )
+               "##FrameHistory",
+               ImVec2(width, height)
           );
-
-
-          // ----------------------------------------------------
-          // Mouse interaction
-          // ----------------------------------------------------
 
           if (ImGui::IsItemHovered())
           {
-               const ImVec2 mouse =
-                    ImGui::GetMousePos();
+               const float mouseX =
+                    ImGui::GetMousePos().x - origin.x;
 
-
-               const float localX =
-                    mouse.x - graphPosition.x;
-
-
-               int hoveredIndex =
-                    static_cast<int>(
-                         localX / frameWidth
-                         );
-
-
-               hoveredIndex =
-                    std::clamp(
-                         hoveredIndex,
-                         0,
-                         static_cast<int>(
-                              frames.size()
-                              ) - 1
-                    );
-
+               const int index = std::clamp(
+                    static_cast<int>(mouseX / barWidth),
+                    0,
+                    static_cast<int>(frames.size()) - 1
+               );
 
                ImGui::BeginTooltip();
 
                ImGui::Text(
-                    "Frame %d",
-                    hoveredIndex
+                    "Frame ID: %llu",
+                    static_cast<unsigned long long>(
+                         frames[index].frameId
+                         )
                );
 
                ImGui::Text(
-                    "%.3f ms",
-                    frameTimes[hoveredIndex]
+                    "Profile Span: %.3f ms",
+                    frameTimes[index]
                );
 
-               if (frameTimes[hoveredIndex] > 0.0f)
-               {
-                    ImGui::Text(
-                         "%.1f FPS",
-                         1000.0f /
-                         frameTimes[hoveredIndex]
-                    );
-               }
-
                ImGui::EndTooltip();
-
 
                if (ImGui::IsMouseClicked(
                     ImGuiMouseButton_Left))
                {
-                    m_SelectedFrameIndex =
-                         hoveredIndex;
-
-                    // 用户手动选择后停止自动追踪
+                    m_SelectedFrameIndex = index;
                     m_FollowLatestFrame = false;
                }
           }
      }
 
 
-     // ========================================================
-     // Selected Frame Info
-     // ========================================================
-
-     void DrawSelectedFrameInfo(
-          const std::vector<std::vector<ProfileEvent>>& frames)
-     {
-          if (m_SelectedFrameIndex < 0)
-               return;
-
-
-          const auto& frame =
-               frames[m_SelectedFrameIndex];
-
-
-          const float frameTime =
-               CalculateFrameTime(frame);
-
-
-          ImGui::Text(
-               "Selected Frame: %d",
-               m_SelectedFrameIndex
-          );
-
-
-          ImGui::SameLine();
-
-
-          ImGui::Text(
-               "| Frame Time: %.3f ms",
-               frameTime
-          );
-
-
-          if (frameTime > 0.0f)
-          {
-               ImGui::SameLine();
-
-               ImGui::Text(
-                    "| %.1f FPS",
-                    1000.0f / frameTime
-               );
-          }
-
-
-          ImGui::SameLine();
-
-          ImGui::Text(
-               "| Events: %zu",
-               frame.size()
-          );
-     }
-
-
-     // ========================================================
+     // ============================================================
      // Timeline
-     // ========================================================
+     //
+     // 每个 Thread 独立显示
+     // ============================================================
 
      void DrawTimeline(
           const std::vector<ProfileEvent>& frame)
      {
-          ImGui::Text("Timeline");
+          ImGui::Text("Multithread Timeline");
 
           if (frame.empty())
           {
-               ImGui::TextDisabled(
-                    "No events in this frame."
-               );
-
+               ImGui::TextDisabled("No events.");
                return;
           }
 
+          // 找出所有出现过的线程。
+          std::vector<std::thread::id> threadIds;
 
-          // --------------------------------------------------------
-          // Sort
-          // --------------------------------------------------------
+          for (const auto& event : frame)
+          {
+               if (std::find(
+                    threadIds.begin(),
+                    threadIds.end(),
+                    event.threadId
+               ) == threadIds.end())
+               {
+                    threadIds.push_back(event.threadId);
+               }
+          }
 
+          // 同一线程内部按开始时间排序。
           std::vector<ProfileEvent> events = frame;
 
-          SortEvents(events);
+          std::sort(
+               events.begin(),
+               events.end(),
+               [](const ProfileEvent& a,
+                    const ProfileEvent& b)
+               {
+                    if (a.startMs == b.startMs)
+                         return a.depth < b.depth;
 
+                    return a.startMs < b.startMs;
+               }
+          );
 
           const float frameTime =
                CalculateFrameTime(events);
 
-
           if (frameTime <= 0.0f)
                return;
 
+          ImGui::Text(
+               "Threads: %zu",
+               threadIds.size()
+          );
 
-          // --------------------------------------------------------
-          // Timeline Table
-          // --------------------------------------------------------
-
-          constexpr float rowHeight = 24.0f;
-
+          constexpr float rowHeight = 22.0f;
 
           if (ImGui::BeginTable(
-               "ProfilerTimelineTable",
+               "ProfilerTimeline",
                2,
-               ImGuiTableFlags_BordersInnerV |
+               ImGuiTableFlags_Borders |
                ImGuiTableFlags_RowBg |
                ImGuiTableFlags_Resizable |
-               ImGuiTableFlags_SizingStretchProp))
+               ImGuiTableFlags_ScrollY,
+               ImVec2(0.0f, 350.0f)))
           {
-               // ====================================================
-               // Columns
-               // ====================================================
-
                ImGui::TableSetupColumn(
-                    "Event",
+                    "Thread / Event",
                     ImGuiTableColumnFlags_WidthFixed,
                     220.0f
                );
@@ -542,192 +376,163 @@ private:
                     ImGuiTableColumnFlags_WidthStretch
                );
 
-
                ImGui::TableHeadersRow();
 
-
-               // ====================================================
-               // Events
-               // ====================================================
-
-               for (std::size_t i = 0;
-                    i < events.size();
-                    ++i)
+               for (size_t threadIndex = 0;
+                    threadIndex < threadIds.size();
+                    ++threadIndex)
                {
-                    const auto& event = events[i];
+                    const auto threadId =
+                         threadIds[threadIndex];
 
-
-                    ImGui::PushID(
-                         static_cast<int>(i)
-                    );
-
-
-                    ImGui::TableNextRow(
-                         ImGuiTableRowFlags_None,
-                         rowHeight
-                    );
-
-
-                    // =================================================
-                    // Column 0
-                    // Event Name
-                    // =================================================
+                    // Thread Header
+                    ImGui::TableNextRow();
 
                     ImGui::TableSetColumnIndex(0);
 
-
-                    const float indent =
-                         static_cast<float>(
-                              event.depth
-                              ) * 14.0f;
-
-
-                    ImGui::Indent(indent);
-
-
-                    ImGui::TextUnformatted(
-                         event.name.c_str()
+                    ImGui::Text(
+                         "Thread %zu",
+                         threadIndex
                     );
 
+                    ImGui::SameLine();
 
-                    ImGui::Unindent(indent);
+                    ImGui::TextDisabled(
+                         "(%zu)",
+                         std::hash<std::thread::id>{}(threadId)
+                    );
 
-
-                    // =================================================
-                    // Column 1
-                    // Timeline
-                    // =================================================
-
-                    ImGui::TableSetColumnIndex(1);
-
-
-                    const ImVec2 timelinePosition =
-                         ImGui::GetCursorScreenPos();
-
-
-                    const float timelineWidth =
-                         ImGui::GetContentRegionAvail().x;
-
-
-                    // 防止窗口太窄
-                    if (timelineWidth > 1.0f)
+                    // Events for this Thread
+                    for (size_t eventIndex = 0;
+                         eventIndex < events.size();
+                         ++eventIndex)
                     {
-                         DrawTimelineEvent(
-                              event,
-                              timelinePosition,
-                              timelineWidth,
-                              rowHeight,
-                              frameTime
+                         const auto& event =
+                              events[eventIndex];
+
+                         if (event.threadId != threadId)
+                              continue;
+
+                         ImGui::PushID(
+                              static_cast<int>(eventIndex)
                          );
-                    }
 
-
-                    // 占据这一行的空间
-                    ImGui::Dummy(
-                         ImVec2(
-                              timelineWidth,
+                         ImGui::TableNextRow(
+                              ImGuiTableRowFlags_None,
                               rowHeight
-                         )
-                    );
+                         );
 
+                         // Event Name
+                         ImGui::TableSetColumnIndex(0);
 
-                    ImGui::PopID();
+                         const float indent =
+                              static_cast<float>(event.depth)
+                              * 12.0f;
+
+                         ImGui::Indent(indent);
+
+                         ImGui::TextUnformatted(
+                              event.name.c_str()
+                         );
+
+                         ImGui::Unindent(indent);
+
+                         // Timeline Bar
+                         ImGui::TableSetColumnIndex(1);
+
+                         const ImVec2 position =
+                              ImGui::GetCursorScreenPos();
+
+                         const float width =
+                              ImGui::GetContentRegionAvail().x;
+
+                         if (width > 1.0f)
+                         {
+                              DrawTimelineEvent(
+                                   event,
+                                   position,
+                                   width,
+                                   rowHeight,
+                                   frameTime
+                              );
+                         }
+
+                         ImGui::Dummy(
+                              ImVec2(
+                                   std::max(1.0f, width),
+                                   rowHeight
+                              )
+                         );
+
+                         ImGui::PopID();
+                    }
                }
-
 
                ImGui::EndTable();
           }
      }
+
+
+     // ============================================================
+     // Draw Timeline Event
+     // ============================================================
+
      void DrawTimelineEvent(
           const ProfileEvent& event,
-          const ImVec2& timelinePosition,
-          float timelineWidth,
+          const ImVec2& position,
+          float width,
           float rowHeight,
           float frameTime)
      {
+          if (frameTime <= 0.0f)
+               return;
+
           ImDrawList* drawList =
                ImGui::GetWindowDrawList();
 
-
-          // ========================================================
-          // Calculate Position
-          // ========================================================
-
           const float startRatio =
-               event.startMs /
-               frameTime;
-
+               event.startMs / frameTime;
 
           const float durationRatio =
-               event.durationMs /
-               frameTime;
+               event.durationMs / frameTime;
 
+          const float x0 =
+               position.x + startRatio * width;
 
-          const float barStartX =
-               timelinePosition.x +
-               startRatio *
-               timelineWidth;
-
-
-          const float barWidth =
-               std::max(
+          const float x1 =
+               x0 + std::max(
                     1.0f,
-                    durationRatio *
-                    timelineWidth
+                    durationRatio * width
                );
 
-
-          // ========================================================
-          // Bar Rectangle
-          // ========================================================
-
-          const ImVec2 barMin(
-               barStartX,
-               timelinePosition.y + 3.0f
+          const ImVec2 min(
+               x0,
+               position.y + 3.0f
           );
 
-
-          const ImVec2 barMax(
-               barStartX + barWidth,
-               timelinePosition.y +
-               rowHeight -
-               3.0f
+          const ImVec2 max(
+               x1,
+               position.y + rowHeight - 3.0f
           );
-
-
-          // ========================================================
-          // Draw
-          // ========================================================
 
           drawList->AddRectFilled(
-               barMin,
-               barMax,
+               min,
+               max,
                GetDepthColor(event.depth),
                2.0f
           );
 
-
-          // ========================================================
-          // Hover
-          // ========================================================
-
           const ImVec2 mouse =
                ImGui::GetMousePos();
 
-
-          const bool hovered =
-               mouse.x >= barMin.x &&
-               mouse.x <= barMax.x &&
-               mouse.y >= barMin.y &&
-               mouse.y <= barMax.y;
-
-
-          if (hovered)
+          if (mouse.x >= min.x &&
+               mouse.x <= max.x &&
+               mouse.y >= min.y &&
+               mouse.y <= max.y)
           {
                ImGui::BeginTooltip();
 
-               ImGui::Text(
-                    "%s",
+               ImGui::TextUnformatted(
                     event.name.c_str()
                );
 
@@ -744,255 +549,148 @@ private:
                );
 
                ImGui::Text(
-                    "End: %.3f ms",
-                    event.startMs +
-                    event.durationMs
+                    "Depth: %u",
+                    event.depth
                );
 
                ImGui::Text(
-                    "Depth: %u",
-                    event.depth
+                    "Thread: %zu",
+                    std::hash<std::thread::id>{}(
+                         event.threadId
+                         )
                );
 
                ImGui::EndTooltip();
           }
      }
 
-     // ========================================================
+
+     // ============================================================
      // Event Table
-     // ========================================================
+     // ============================================================
 
      void DrawEventTable(
           const std::vector<ProfileEvent>& frame)
      {
           ImGui::Text("Events");
 
+          std::vector<ProfileEvent> events = frame;
 
-          std::vector<ProfileEvent> events =
-               frame;
-
-
-          SortEvents(events);
-
-
-          if (ImGui::BeginTable(
-               "ProfilerEventTable",
-               4,
-               ImGuiTableFlags_Borders |
-               ImGuiTableFlags_RowBg |
-               ImGuiTableFlags_Resizable |
-               ImGuiTableFlags_ScrollY,
-               ImVec2(0.0f, 250.0f)))
-          {
-               ImGui::TableSetupColumn(
-                    "Section",
-                    ImGuiTableColumnFlags_WidthStretch
-               );
-
-               ImGui::TableSetupColumn(
-                    "Start",
-                    ImGuiTableColumnFlags_WidthFixed,
-                    90.0f
-               );
-
-               ImGui::TableSetupColumn(
-                    "Duration",
-                    ImGuiTableColumnFlags_WidthFixed,
-                    100.0f
-               );
-
-               ImGui::TableSetupColumn(
-                    "Depth",
-                    ImGuiTableColumnFlags_WidthFixed,
-                    60.0f
-               );
-
-
-               ImGui::TableHeadersRow();
-
-
-               for (const auto& event : events)
-               {
-                    ImGui::TableNextRow();
-
-
-                    // ============================================
-                    // Name
-                    // ============================================
-
-                    ImGui::TableSetColumnIndex(0);
-
-
-                    const float indent =
-                         static_cast<float>(
-                              event.depth
-                              ) * 15.0f;
-
-
-                    ImGui::Indent(indent);
-
-                    ImGui::TextUnformatted(
-                         event.name.c_str()
-                    );
-
-                    ImGui::Unindent(indent);
-
-
-                    // ============================================
-                    // Start
-                    // ============================================
-
-                    ImGui::TableSetColumnIndex(1);
-
-                    ImGui::Text(
-                         "%.3f ms",
-                         event.startMs
-                    );
-
-
-                    // ============================================
-                    // Duration
-                    // ============================================
-
-                    ImGui::TableSetColumnIndex(2);
-
-                    ImGui::Text(
-                         "%.3f ms",
-                         event.durationMs
-                    );
-
-
-                    // ============================================
-                    // Depth
-                    // ============================================
-
-                    ImGui::TableSetColumnIndex(3);
-
-                    ImGui::Text(
-                         "%u",
-                         event.depth
-                    );
-               }
-
-
-               ImGui::EndTable();
-          }
-     }
-
-
-     // ========================================================
-     // Utility
-     // ========================================================
-
-     static void SortEvents(
-          std::vector<ProfileEvent>& events)
-     {
           std::sort(
                events.begin(),
                events.end(),
                [](const ProfileEvent& a,
                     const ProfileEvent& b)
                {
-                    if (a.startMs ==
-                         b.startMs)
-                    {
-                         return a.depth <
-                              b.depth;
-                    }
-
-                    return a.startMs <
-                         b.startMs;
+                    return a.startMs < b.startMs;
                }
           );
+
+          if (ImGui::BeginTable(
+               "ProfilerEventTable",
+               5,
+               ImGuiTableFlags_Borders |
+               ImGuiTableFlags_RowBg |
+               ImGuiTableFlags_Resizable |
+               ImGuiTableFlags_ScrollY,
+               ImVec2(0.0f, 250.0f)))
+          {
+               ImGui::TableSetupColumn("Event");
+               ImGui::TableSetupColumn("Thread");
+               ImGui::TableSetupColumn("Start");
+               ImGui::TableSetupColumn("Duration");
+               ImGui::TableSetupColumn("Depth");
+
+               ImGui::TableHeadersRow();
+
+               for (const auto& event : events)
+               {
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted(event.name.c_str());
+
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text(
+                         "%zu",
+                         std::hash<std::thread::id>{}(
+                              event.threadId
+                              )
+                    );
+
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::Text("%.3f ms", event.startMs);
+
+                    ImGui::TableSetColumnIndex(3);
+                    ImGui::Text("%.3f ms", event.durationMs);
+
+                    ImGui::TableSetColumnIndex(4);
+                    ImGui::Text("%u", event.depth);
+               }
+
+               ImGui::EndTable();
+          }
+
+          // ============================================================
+          // Copy Events Table
+          // ============================================================
+
+          if (ImGui::Button("Copy Table"))
+          {
+               std::string clipboard;
+
+               clipboard +=
+                    "Event\tThread\tStart\tDuration\tDepth\n";
+
+               char buffer[512];
+
+               for (const auto& event : events)
+               {
+                    std::snprintf(
+                         buffer,
+                         sizeof(buffer),
+                         "%s\t%zu\t%.3f ms\t%.3f ms\t%u\n",
+                         event.name.c_str(),
+                         std::hash<std::thread::id>{}(
+                              event.threadId
+                              ),
+                         event.startMs,
+                         event.durationMs,
+                         event.depth
+                    );
+
+                    clipboard += buffer;
+               }
+
+               ImGui::SetClipboardText(clipboard.c_str());
+          }
      }
 
 
+
+     // ============================================================
+     // Utility
+     // ============================================================
+
      static float CalculateFrameTime(
-          const std::vector<ProfileEvent>& frame)
+          const std::vector<ProfileEvent>& events)
      {
           float endTime = 0.0f;
 
-
-          for (const auto& event : frame)
+          for (const auto& event : events)
           {
-               endTime =
-                    std::max(
-                         endTime,
-                         event.startMs +
-                         event.durationMs
-                    );
+               endTime = std::max(
+                    endTime,
+                    event.startMs + event.durationMs
+               );
           }
-
 
           return endTime;
      }
 
 
-     static void DrawReferenceLine(
-          ImDrawList* drawList,
-          const ImVec2& graphPosition,
-          float graphWidth,
-          float graphHeight,
-          float maxFrameTime,
-          float referenceTime,
-          const char* label)
+     static ImU32 GetDepthColor(uint32_t depth)
      {
-          if (maxFrameTime <= 0.0f)
-               return;
-
-
-          const float ratio =
-               referenceTime /
-               maxFrameTime;
-
-
-          if (ratio > 1.0f)
-               return;
-
-
-          const float y =
-               graphPosition.y +
-               graphHeight -
-               ratio *
-               graphHeight;
-
-
-          drawList->AddLine(
-               ImVec2(
-                    graphPosition.x,
-                    y
-               ),
-               ImVec2(
-                    graphPosition.x +
-                    graphWidth,
-                    y
-               ),
-               ImGui::GetColorU32(
-                    ImGuiCol_TextDisabled
-               )
-          );
-
-
-          drawList->AddText(
-               ImVec2(
-                    graphPosition.x + 4.0f,
-                    y + 2.0f
-               ),
-               ImGui::GetColorU32(
-                    ImGuiCol_TextDisabled
-               ),
-               label
-          );
-     }
-
-
-     static ImU32 GetDepthColor(
-          uint32_t depth)
-     {
-          // 不硬编码颜色。
-          // 从当前 ImGui Theme 中选择几个颜色，
-          // 这样 Dark / Light Theme 都能工作。
-
           switch (depth % 4)
           {
           case 0:
@@ -1020,13 +718,7 @@ private:
 
 private:
 
-     // -1 表示还没有选择
      int m_SelectedFrameIndex = -1;
 
-     // true:
-     // 每帧自动选择最新 Frame
-     //
-     // false:
-     // 用户正在查看历史 Frame
      bool m_FollowLatestFrame = true;
 };
