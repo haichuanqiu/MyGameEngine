@@ -48,6 +48,7 @@ void PointLight::OnCreatedBySceneLoader() {
           );
 }
 PointLight::~PointLight() {
+     std::cout << "Remove component" << std::endl;
      m_target->GetLighting().RemovePointLight(id);
 }
 void PointLight::OnAdded(GameObject* owner)
@@ -60,6 +61,14 @@ void PointLight::OnAdded(GameObject* owner)
      if (!owner->transform)
           return;
 
+     SetDefaultTarget(
+          &Engine::Instance().renderSystem
+     );
+     id = -1;
+
+     UpdateLightData(
+          Engine::Instance().renderSystem
+     );
      m_owner = owner;
 
      m_TransformSubscription =

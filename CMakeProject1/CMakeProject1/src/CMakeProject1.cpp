@@ -11,12 +11,14 @@
 #include "Assets/Material.h"
 #include "Assets/AssetManager.h"
 #include "rendering/ShaderManager.h"
+#include "Testing/heavyloadTestScene.h"
 int main()
 {
       EditorApplication editor;
 
      //testScene::OnSceneCreated( *editor.m_Engine);
-     testLoadScene::OnSceneCreated(*editor.m_Engine);
+    // testLoadScene::OnSceneCreated(*editor.m_Engine);
+     heavyloadTestScene::OnSceneCreated(*editor.m_Engine);
      double targetFrameTime = 1.0 / 60.0;
     
      //editor.EngineRunning=true;
