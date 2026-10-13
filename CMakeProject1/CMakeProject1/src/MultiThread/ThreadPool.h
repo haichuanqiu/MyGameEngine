@@ -23,41 +23,45 @@ public:
      }
 
 
-     void Submit(
-          std::function<void()> function,
-          JobGroup* group = nullptr)
+     bool Submit(std::unique_ptr<Job> job)
      {
-          Job job;
+          if (!job)
+          {
+               return false;
+          }
 
-          job.function = std::move(function);
-          job.group = group;
-
+          JobGroup* group = job->group;
 
           if (group != nullptr)
           {
                group->AddJob();
           }
 
+          if (!jobQueue.Push(std::move(job)))
+          {
+               // Push 失败时恢复 JobGroup 计数
+               if (group != nullptr)
+               {
+                    group->JobFinished();
+               }
 
-          jobQueue.Push(std::move(job));
+               return false;
+          }
+
+          return true;
      }
 
 
      void Shutdown()
      {
-          // 告诉 Queue：
-          //
-          // 不会再有 Job 了
-          //
+          // 不再接受新 Job
           jobQueue.Shutdown();
 
-
-          // 等所有 Worker Thread 退出
+          // 等待所有 Worker 退出
           for (auto& worker : workers)
           {
                worker->Join();
           }
-
 
           workers.clear();
      }

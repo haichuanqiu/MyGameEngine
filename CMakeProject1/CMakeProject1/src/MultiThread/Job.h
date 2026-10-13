@@ -1,14 +1,16 @@
 #pragma once
 
 #include <functional>
-
+#include <iostream>
 class JobGroup;
 
-class Job
+struct Job
 {
-public:
-	std::function<void()> function;
-	JobGroup* group = nullptr;
+     JobGroup* group = nullptr;
 
-	void Execute();
+     virtual ~Job() = default;
+
+     virtual void ToExecute() = 0;
+
+     void Execute();
 };

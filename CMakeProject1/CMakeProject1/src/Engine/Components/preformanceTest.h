@@ -184,6 +184,67 @@ REFLECT_BASE(
 
 REGISTER_COMPONENT(ObjectSwarmController)
 
+
+struct swarmParallelJob : Job
+{
+     size_t begin = 0;
+     size_t end = 0;
+
+     float currentTime = 0.0f;
+     float currentRadius = 0.0f;
+     float currentWaveStrength = 0.0f;
+     float currentSpacing = 0.0f;
+
+     const std::vector<bool>* validObjects = nullptr;
+     std::vector<Vector3>* calculatedPositions = nullptr;
+
+     Vector3 center;
+     int currentIterations = 1;
+
+     void ToExecute() override
+     {
+        //  std::cout << "swarmParallelJob.Execute" << std::endl;
+          for (size_t i = begin; i < end; ++i)
+          {
+               if (!(*validObjects)[i])
+                    continue;
+
+               const float index = static_cast<float>(i);
+
+               const float angle =
+                    index * currentSpacing + currentTime;
+
+               float x = 0.0f;
+               float y = 0.0f;
+               float z = 0.0f;
+
+               for (int j = 0; j < currentIterations; ++j)
+               {
+                    const float offset =
+                         static_cast<float>(j) * 0.001f;
+
+                    x += std::cos(angle + offset)
+                         * currentRadius;
+
+                    z += std::sin(angle + offset)
+                         * currentRadius;
+
+                    y += std::sin(angle * 2.0f + offset)
+                         * currentWaveStrength;
+               }
+
+               const float invIterations =
+                    1.0f / static_cast<float>(currentIterations);
+
+               (*calculatedPositions)[i] = Vector3(
+                    center.x + x * invIterations,
+                    center.y + y * invIterations,
+                    center.z + z * invIterations
+               );
+          }
+     }
+};
+
 class ObjectSwarmControllerParallel : public Component//fast in release, slow in debug
 {
 public:
@@ -202,6 +263,7 @@ public:
 
      void Update()
      {
+          //std::cout << "start update_______________________" << std::endl;
           ENGINE_PROFILE_SCOPE("Swarm parallel update");
 
           Transform* controllerTransform =
@@ -297,7 +359,7 @@ public:
                );
 
 
-          JobGroup group;
+          JobGroup myGroup;
 
 
           constexpr size_t batchSize =
@@ -324,7 +386,7 @@ public:
           // 不包含 Wait。
           // ============================================================
 
-         
+          //std::cout << "finish prepare data" << std::endl;
 
 
                for (size_t begin = 0;
@@ -336,9 +398,29 @@ public:
                               begin + batchSize,
                               objectCount
                          );
+                         
 
+                    auto job = std::make_unique<swarmParallelJob>();
 
-                    threadPool.Submit(
+                    job->begin = begin;
+                    job->end = end;
+
+                    job->center = center;
+
+                    job->currentTime = currentTime;
+                    job->currentRadius = currentRadius;
+                    job->currentWaveStrength = currentWaveStrength;
+                    job->currentSpacing = currentSpacing;
+
+                    job->validObjects = &validObjects;
+                    job->calculatedPositions = &calculatedPositions;
+
+                    job->currentIterations = currentIterations;
+                    job->group = &myGroup;
+
+                    threadPool.Submit(std::move(job));
+                 //   std::cout << "submitJob" << std::endl;;
+                  /*  threadPool.Submit(
 
                          [this,
                          begin,
@@ -438,7 +520,8 @@ public:
                          },
 
                          &group
-                    );
+                    );*/
+
                }
           
 
@@ -457,9 +540,9 @@ public:
           {ENGINE_PROFILE_SCOPE("Swarm::WaitWorkers");
 
 
-               group.Wait();
+               myGroup.Wait();
           }
-
+          //std::cout << "finish waiting for job----" << std::endl;
 
           // ============================================================
           // Apply
@@ -471,16 +554,16 @@ public:
 
           {ENGINE_PROFILE_SCOPE("Swarm::ApplyTransforms");
 
-
+        
                for (size_t i = 0;
                     i < objectCount;
                     ++i)
                {
+                    
                     if (!validObjects[i])
                     {
                          continue;
                     }
-
 
                     GameObject* obj =
                          objects[i].get();
@@ -501,12 +584,13 @@ public:
                          continue;
                     }
 
-
-                    transform->SetPosition(
+                         transform->SetPosition(
                          calculatedPositions[i]
                     );
                }
           }
+          //std::cout << "end parallel update_______________________" << std::endl;
+
      }
 
 
@@ -568,10 +652,10 @@ REFLECT_BASE(
 REGISTER_COMPONENT(
      ObjectSwarmControllerParallel
 )
-
+/*
 #include <cstdint>
 class ObjectSwarmControllerRemoveLock : public Component//fast in release and debug
-{
+{ 
 public:
 
      std::vector<EngineObjectHandle<GameObject>> objects;
@@ -913,4 +997,4 @@ private:
                MultiThread::Get()
                .GetThreadPool();
      }
-};
+};*/

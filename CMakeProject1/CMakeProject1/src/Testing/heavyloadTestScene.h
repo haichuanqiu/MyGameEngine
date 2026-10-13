@@ -4,7 +4,7 @@ namespace heavyloadTestScene
 {
 	void OnSceneCreated(Engine& engine)
 	{
-		constexpr int OBJECT_COUNT = 10240;
+		constexpr int OBJECT_COUNT = 10000;
 		constexpr int Iteration = 1;
 		constexpr int GRID_WIDTH = 100;
 		constexpr float OBJECT_SPACING = 1.5f;
@@ -138,7 +138,6 @@ namespace heavyloadTestScene
 		//
 		// Single Thread Controller
 		// ============================================================
-
 		GameObject& controllerSingle =
 			engine.currentScene->AddGameObject();
 
@@ -178,6 +177,7 @@ namespace heavyloadTestScene
 		);
 
 
+
 		// ============================================================
 		// Controller 2
 		//
@@ -197,10 +197,9 @@ namespace heavyloadTestScene
 				-40.0f
 			)
 		);
-
-		ObjectSwarmControllerRemoveLock* swarmParallel =
+		ObjectSwarmControllerParallel* swarmParallel =
 			controllerParallel.AddComponent<
-			ObjectSwarmControllerRemoveLock
+			ObjectSwarmControllerParallel
 			>();
 
 
@@ -497,10 +496,7 @@ namespace heavyloadTestScene
 			<< std::endl;
 
 
-		std::cout
-			<< "Single Thread Object Count: "
-			<< swarmSingle->objects.size()
-			<< std::endl;
+	//	std::cout<< "Single Thread Object Count: "<< swarmSingle->objects.size()<< std::endl;
 
 
 		std::cout
@@ -512,7 +508,7 @@ namespace heavyloadTestScene
 		std::cout
 			<< "Total Swarm Object Count: "
 			<< (
-				swarmSingle->objects.size() +
+				//swarmSingle->objects.size() +
 				swarmParallel->objects.size()
 				)
 			<< std::endl;
@@ -520,7 +516,7 @@ namespace heavyloadTestScene
 
 		std::cout
 			<< "Calculation Iterations: "
-			<< swarmSingle->calculationIterations
+			<< swarmParallel->calculationIterations
 			<< std::endl;
 
 

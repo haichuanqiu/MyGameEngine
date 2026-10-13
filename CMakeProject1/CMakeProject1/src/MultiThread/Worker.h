@@ -34,17 +34,18 @@ private:
      {
           while (true)
           {
-               Job job;
 
-               // 没 Job 时会睡在 Pop() 里面
-               if (!jobQueue->Pop(job))
+               std::unique_ptr<Job> job;
+
+               while (jobQueue->Pop(job))
                {
-                    // Queue Shutdown
-                    break;
+                    job->Execute();
+
+                    job.reset();
                }
 
                // 真正执行任务
-               job.Execute();
+               job->Execute();
           }
      }
 

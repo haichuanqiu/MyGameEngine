@@ -4,7 +4,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
-
+#include <iostream>
 class JobGroup
 {
 public:
@@ -16,11 +16,9 @@ public:
      void JobFinished()
      {
           int oldValue = remaining.fetch_sub(1);
-
-          // 原来是 1
-          // 减完以后就是 0
           if (oldValue == 1)
           {
+
                cv.notify_all();
           }
      }

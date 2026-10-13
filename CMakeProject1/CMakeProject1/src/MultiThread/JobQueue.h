@@ -1,55 +1,51 @@
 #pragma once
 
-#include "Job.h"
-#include "Profiler/profiler.h"
-
 #include <queue>
+#include <memory>
 #include <mutex>
 #include <condition_variable>
+
+#include "Job.h"
 
 class JobQueue
 {
 public:
 
-     void Push(Job job)
+     bool Push(std::unique_ptr<Job> job)
      {
-
+          {
                std::lock_guard<std::mutex> lock(mutex);
 
-               jobs.push(std::move(job));
-          
+               if (shuttingDown)
+               {
+                    return false;
+               }
 
-          // 有新工作
-          // 叫醒一个 Worker
+               jobs.push(std::move(job));
+          }
+
           cv.notify_one();
+
+          return true;
      }
 
 
-     bool Pop(Job& outJob)
+     bool Pop(std::unique_ptr<Job>& outJob)
      {
           std::unique_lock<std::mutex> lock(mutex);
 
-          // 如果：
-          //
-          // jobs.empty() == true
-          //
-          // Worker 就睡在这里
-          //
           cv.wait(lock, [this]()
                {
                     return !jobs.empty() || shuttingDown;
                });
 
-
-          // Engine 正在关闭
           if (shuttingDown && jobs.empty())
           {
                return false;
           }
 
-
-          // 拿走一个 Job
           outJob = std::move(jobs.front());
+
           jobs.pop();
 
           return true;
@@ -64,14 +60,13 @@ public:
                shuttingDown = true;
           }
 
-          // 把所有正在睡觉的 Worker 叫醒
           cv.notify_all();
      }
 
 
 private:
 
-     std::queue<Job> jobs;
+     std::queue<std::unique_ptr<Job>> jobs;
 
      std::mutex mutex;
 
