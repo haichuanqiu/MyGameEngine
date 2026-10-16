@@ -35,17 +35,14 @@ private:
           while (true)
           {
 
-               std::unique_ptr<Job> job;
+               std::unique_ptr<QueuedJob> job;
 
                while (jobQueue->Pop(job))
                {
                     job->Execute();
 
                     job.reset();
-               }
-
-               // 真正执行任务
-               job->Execute();
+               }                                                                                                                                                                                                                                                      job->Execute();
           }
      }
 

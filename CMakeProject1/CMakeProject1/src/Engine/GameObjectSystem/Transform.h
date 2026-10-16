@@ -4,9 +4,13 @@
 #include "Engine/DataStructure.h"
 #include "Serialization/ComponentRegistry.h"
 #include "Event.h"
+#include <unordered_set>
 class Transform : public Component
 {
 public:
+     inline static std::vector<Transform*> MainThreadDirtyList{};
+     inline static std::unordered_set<Transform*> DirtySet{};
+
      Event<const Transform&> OnChange;
 
 public:
@@ -19,10 +23,13 @@ public:
           return position;
      }
 
-     void SetPosition(const Vector3& value)
-     {
-          position = value;
-          NotifyChanged();
+     static void InvokeOnChange() {
+          for(auto var : MainThreadDirtyList)
+          {
+               var->OnChange.Invoke(*var);
+          }
+          MainThreadDirtyList.clear();
+          DirtySet.clear();
      }
 
      // =========================
@@ -33,33 +40,57 @@ public:
      {
           return scale;
      }
-
-     void SetScale(const Vector3& value)
+     void SetScaleInternal(const Vector3& value)
      {
           scale = value;
-          NotifyChanged();
      }
 
      // =========================
      // Rotation
      // =========================
+     void SetPositionInternal(const Vector3& value)
+     {
+          position = value;
+     }
 
+     void SetRotationInternal(const Quaternion& value)
+     {
+          rotation = value;
+     }
+     void SetScale(const Vector3& value)
+     {
+          SetScaleInternal(value);
+          setDirty();
+     }
+
+     // =========================
+     // Rotation
+     // =========================
+     void SetPosition(const Vector3& value)
+     {
+          SetPositionInternal( value);
+          setDirty();
+     }
+
+     void SetRotation(const Quaternion& value)
+     {
+          SetRotationInternal(value);
+          setDirty();
+     }
      const Quaternion& GetRotation() const
      {
           return rotation;
      }
 
-     void SetRotation(const Quaternion& value)
+
+     void setDirty()
      {
-          rotation = value;
-          NotifyChanged();
+          if (DirtySet.insert(this).second) {
+               MainThreadDirtyList.push_back(this);
+          }
      }
 private:
-     void NotifyChanged()
-     {
-   
-          OnChange.Invoke(*this);
-     }
+     
 private:
      Vector3 position;
      Vector3 scale{ 1.0f, 1.0f, 1.0f };

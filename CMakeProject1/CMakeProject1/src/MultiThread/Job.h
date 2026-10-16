@@ -12,5 +12,16 @@ struct Job
 
      virtual void ToExecute() = 0;
 
-     void Execute();
+};
+
+
+
+struct JobParallelFor
+{
+     JobGroup* group = nullptr;
+     int batchSize;
+     virtual ~JobParallelFor() = default;
+
+     virtual void ToExecute(int index) = 0;
+
 };

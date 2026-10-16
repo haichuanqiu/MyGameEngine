@@ -106,9 +106,10 @@ public:
                     if (!component)
                          continue;
 
-
+                    
                     component->Update();
                }
+               Transform::InvokeOnChange();
           }
 
           

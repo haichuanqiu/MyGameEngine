@@ -4,14 +4,14 @@
 #include <memory>
 #include <mutex>
 #include <condition_variable>
-
+#include "internalQueuedJob.h"
 #include "Job.h"
 
 class JobQueue
 {
 public:
 
-     bool Push(std::unique_ptr<Job> job)
+     bool Push(std::unique_ptr<QueuedJob> job)
      {
           {
                std::lock_guard<std::mutex> lock(mutex);
@@ -30,7 +30,7 @@ public:
      }
 
 
-     bool Pop(std::unique_ptr<Job>& outJob)
+     bool Pop(std::unique_ptr<QueuedJob>& outJob)
      {
           std::unique_lock<std::mutex> lock(mutex);
 
@@ -66,7 +66,7 @@ public:
 
 private:
 
-     std::queue<std::unique_ptr<Job>> jobs;
+     std::queue<std::unique_ptr<QueuedJob>> jobs;
 
      std::mutex mutex;
 

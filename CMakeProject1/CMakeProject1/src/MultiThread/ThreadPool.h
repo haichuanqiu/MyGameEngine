@@ -2,7 +2,7 @@
 
 #include "Worker.h"
 #include "JobGroup.h"
-
+#include "internalQueuedJob.h"
 #include <vector>
 #include <memory>
 
@@ -23,32 +23,87 @@ public:
      }
 
 
-     bool Submit(std::unique_ptr<Job> job)
+     void Submit(std::unique_ptr<Job> job)
      {
           if (!job)
           {
-               return false;
+               return;
           }
 
-          JobGroup* group = job->group;
+          // 将 Job 的所有权转移给 shared_ptr
+          std::shared_ptr<Job> ownedJob(std::move(job));
 
-          if (group != nullptr)
-          {
-               group->AddJob();
-          }
+          // 真正创建 QueuedJob 对象
+          auto queued = std::make_unique<QueuedJob>();
 
-          if (!jobQueue.Push(std::move(job)))
-          {
-               // Push 失败时恢复 JobGroup 计数
-               if (group != nullptr)
+          // 保存执行函数，并持有 Job 对象
+          queued->function = [ownedJob]()
                {
-                    group->JobFinished();
+                    ownedJob->ToExecute();
+               };
+          queued->group = ownedJob->group;
+
+          // 提交前增加 JobGroup 计数
+          if (queued->group)
+          {
+               queued->group->AddJob();
+          }
+
+          jobQueue.Push(std::move(queued));
+     }
+     void Submit(
+          std::unique_ptr<JobParallelFor> job,
+          int length,
+          int startIndex)
+     {
+          const int batchSize = job->batchSize;
+          if (!job || length <= 0)
+          {
+               std::cerr << "submited invalid job or length " << std::endl;
+               return;
+          }
+
+          if (batchSize <= 0)
+          {
+               std::cerr << "submited jon with invalid batch size " << std::endl;
+               return;
+          }
+          std::shared_ptr<JobParallelFor> ownedJob(std::move(job));
+         
+
+          // 整个任务要处理的索引范围是：
+          // [startIndex, startIndex + length)
+          const int endIndex = startIndex + length;
+
+          for (int batchStart = startIndex;
+               batchStart < endIndex;
+               batchStart += batchSize)
+          {
+               const int batchEnd = std::min(
+                    batchStart + batchSize,
+                    endIndex
+               );
+
+               auto queued = std::make_unique<QueuedJob>();
+
+               queued->function =
+                    [ownedJob, batchStart, batchEnd]()
+                    {
+                         for (int i = batchStart; i < batchEnd; ++i)
+                         {
+                              ownedJob->ToExecute(i);
+                         }
+                    };
+
+               queued->group = ownedJob->group;
+
+               if (queued->group)
+               {
+                    queued->group->AddJob();
                }
 
-               return false;
+               jobQueue.Push(std::move(queued));
           }
-
-          return true;
      }
 
 

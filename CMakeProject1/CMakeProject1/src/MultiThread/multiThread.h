@@ -10,18 +10,6 @@ class MultiThread
 {
 public:
 
-     // ============================================================
-     // Singleton
-     //
-     // 第一次调用 Get() 时：
-     //
-     // static MultiThread instance
-     //
-     // 会自动构造。
-     //
-     // 构造函数内部会自动 Initialize()。
-     // ============================================================
-
      static MultiThread& Get()
      {
           static MultiThread instance;

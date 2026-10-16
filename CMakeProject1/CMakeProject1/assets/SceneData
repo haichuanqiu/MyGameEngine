@@ -1,14 +1,14 @@
 {
 GameObject 
 name: Light
-ObjectId: 0
+ObjectId: 221371383
 Component{
 TypeId:13979161094353040123
 Data: {
     "ReferenceInfo": {
         "ScopeLevel": 0,
         "ScopeID": 0,
-        "ObjectID": 1
+        "ObjectID": 1534976173
     },
     "position": {
         "x": 2,
@@ -34,7 +34,7 @@ Data: {
     "ReferenceInfo": {
         "ScopeLevel": 0,
         "ScopeID": 0,
-        "ObjectID": 2
+        "ObjectID": 1742799003
     },
     "Intensity": 10,
     "Range": 10,
@@ -43,21 +43,21 @@ Data: {
         "y": 1,
         "z": 1
     },
-    "id": 0
+    "id": 1701053834
 }
 }
 }
 {
 GameObject 
 name: Cube
-ObjectId: 3
+ObjectId: 1950835088
 Component{
 TypeId:13979161094353040123
 Data: {
     "ReferenceInfo": {
         "ScopeLevel": 0,
         "ScopeID": 0,
-        "ObjectID": 4
+        "ObjectID": 1044784372
     },
     "position": {
         "x": 0,
@@ -83,17 +83,17 @@ Data: {
     "ReferenceInfo": {
         "ScopeLevel": 0,
         "ScopeID": 0,
-        "ObjectID": 5
+        "ObjectID": 747251484
     },
     "material": {
         "ScopeLevel": 1,
         "ScopeID": -1,
-        "ObjectID": 0
+        "ObjectID": 89512665
     },
     "vertexData": {
         "ScopeLevel": 1,
         "ScopeID": -1,
-        "ObjectID": 2
+        "ObjectID": 1397671334
     }
 }
 }
@@ -103,24 +103,24 @@ Data: {
     "ReferenceInfo": {
         "ScopeLevel": 0,
         "ScopeID": 0,
-        "ObjectID": 6
+        "ObjectID": 1526230068
     },
-    "material": {
-        "ScopeLevel": 1,
-        "ScopeID": -1,
-        "ObjectID": 0
-    },
+    "material": null,
     "myRefGameObject": {
         "ScopeLevel": 0,
         "ScopeID": 0,
-        "ObjectID": 0
+        "ObjectID": 221371383
     },
     "rd": {
         "ScopeLevel": 0,
         "ScopeID": 0,
-        "ObjectID": 5
+        "ObjectID": 747251484
     },
-    "ts": null,
+    "ts": {
+        "ScopeLevel": 0,
+        "ScopeID": 0,
+        "ObjectID": 1534976173
+    },
     "testInt": 123,
     "testFloat": 45.67,
     "testString": "ReferenceTest Primitive Test",
